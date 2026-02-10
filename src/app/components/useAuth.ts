@@ -19,28 +19,27 @@ export function useAuth() {
     loading: true
   })
 
-  const API_BASE = '/api/sap-proxy' // ← PAKAI PROXY
+  const API_BASE = '/api/sap-proxy'
 
-  // Cek token valid
+  // ✅ Cek dari localStorage dulu
   const checkAuth = async (): Promise<boolean> => {
     try {
-      const response = await fetch(API_BASE, {
-        method: 'GET',
-        credentials: 'include',
-      })
+      // Cek localStorage
+      const savedToken = localStorage.getItem('sap_csrf_token')
+      const savedUser = localStorage.getItem('sap_username')
 
-      if (response.ok) {
-        const csrfToken = response.headers.get('x-csrf-token')
+      if (savedToken && savedUser) {
         setState({
-          token: csrfToken || null,
-          csrfToken: csrfToken || null,
+          token: savedToken,
+          csrfToken: savedToken,
           isAuthenticated: true,
-          userName: 'SAP User',
+          userName: savedUser,
           loading: false
         })
         return true
       }
-      
+
+      // Kalau tidak ada, set loading false
       setState(prev => ({ ...prev, loading: false }))
       return false
     } catch (error) {
@@ -55,6 +54,8 @@ export function useAuth() {
     try {
       setState(prev => ({ ...prev, loading: true }))
       
+      console.log('🔐 Attempting login for:', username)
+      
       const response = await fetch(API_BASE, {
         method: 'GET',
         credentials: 'include',
@@ -63,12 +64,21 @@ export function useAuth() {
         }
       })
 
+      console.log('Response status:', response.status)
+
       if (!response.ok) {
         setState(prev => ({ ...prev, loading: false }))
         return false
       }
 
       const csrfToken = response.headers.get('x-csrf-token')
+      console.log('✅ Login success, CSRF:', csrfToken)
+      
+      // ✅ Simpan ke localStorage
+      if (csrfToken) {
+        localStorage.setItem('sap_csrf_token', csrfToken)
+        localStorage.setItem('sap_username', username)
+      }
       
       setState({
         token: csrfToken || null,
@@ -79,7 +89,7 @@ export function useAuth() {
       })
       return true
     } catch (error) {
-      console.error('Login error:', error)
+      console.error('💥 Login exception:', error)
       setState(prev => ({ ...prev, loading: false }))
       return false
     }
@@ -87,6 +97,10 @@ export function useAuth() {
 
   // Logout
   const logout = () => {
+    // ✅ Hapus dari localStorage
+    localStorage.removeItem('sap_csrf_token')
+    localStorage.removeItem('sap_username')
+    
     setState({
       token: null,
       csrfToken: null,

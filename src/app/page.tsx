@@ -2,18 +2,18 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/components/useAuth'
-import { Eye, EyeOff } from 'lucide-react' // npm install lucide-react
+import { Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false) // ← NEW
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { isAuthenticated, loading: authLoading, login } = useAuth()
   const router = useRouter()
 
-  // Auto redirect kalau udah login
+  // ✅ FIX: Auto redirect di useEffect
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
       router.push('/dashboard')
@@ -28,7 +28,8 @@ export default function LoginPage() {
     const success = await login(username, password)
     
     if (success) {
-      router.push('/dashboard')
+      // Router.push akan dipanggil otomatis oleh useEffect di atas
+      // router.push('/dashboard') // ← Hapus ini
     } else {
       setError('Login gagal. Username/password salah atau server error.')
     }
@@ -41,6 +42,11 @@ export default function LoginPage() {
         <div className="text-white text-xl">Memeriksa sesi...</div>
       </div>
     )
+  }
+
+  // Jangan render form jika sudah authenticated
+  if (isAuthenticated) {
+    return null
   }
 
   return (
@@ -61,7 +67,6 @@ export default function LoginPage() {
             </div>
           )}
           
-          {/* USERNAME INPUT - FIXED COLOR */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Username SAP
@@ -80,7 +85,6 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* PASSWORD INPUT - FIXED SPACING */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Password
@@ -98,12 +102,11 @@ export default function LoginPage() {
                   transition-all duration-200"
                 placeholder="Masukkan password"
               />
-              {/* EYE ICON - POSISI LEBIH RAPAT */}
               <button
                 type="button"
                 className="absolute inset-y-0 right-0 flex items-center pr-3"
                 onClick={() => setShowPassword(!showPassword)}
-                tabIndex={-1} // Prevent form submission on Enter
+                tabIndex={-1}
               >
                 {showPassword ? (
                   <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
