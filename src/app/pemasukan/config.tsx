@@ -1,0 +1,67 @@
+// src/app/pemasukan/config.ts
+
+import { PemasukanData, ColumnConfig, PageConfig } from '@/app/shared/types'
+
+export const PEMASUKAN_COLUMNS: ColumnConfig<PemasukanData>[] = [
+  { key: 'no', label: 'No', filterable: false, sortable: false, width: '10' },
+  { key: 'postingDate', label: 'Posting Date', filterable: false, sortable: true, width: '22' },
+  { key: 'jenisDokBC', label: 'Jenis Dok BC', filterable: true, sortable: true },
+  { key: 'nomorDokAju', label: 'Nomor Dok Aju', filterable: true, sortable: true },
+  { key: 'tglDokAju', label: 'Tgl Dok Aju', filterable: false, sortable: true },
+  { key: 'nomorDokPendaftaran', label: 'Nomor Dok Pendftr', filterable: true, sortable: true },
+  { key: 'tglDokPendaftaran', label: 'Tgl Dok Pendftr', filterable: false, sortable: true },
+  { key: 'nomorDokumen', label: 'Nomor Dokumen', filterable: true, sortable: true },
+  { 
+    key: 'pengirim', 
+    label: 'Pengirim', 
+    filterable: true, 
+    sortable: true,
+    render: (value) => (
+      <span className='text-gray-900 max-w-xs truncate block'>{value}</span>
+    )
+  },
+  { key: 'kodeBarang', label: 'Kode Barang', filterable: true, sortable: true },
+  { key: 'kodeHS', label: 'Kode HS', filterable: true, sortable: true },
+  { 
+    key: 'namaBarang', 
+    label: 'Nama Barang', 
+    filterable: true, 
+    sortable: true,
+    render: (value) => (
+      <span className='text-gray-900 max-w-[200px] sm:max-w-md truncate block'>{value}</span>
+    )
+  },
+  { key: 'satuan', label: 'Satuan', filterable: true, sortable: true, width: '12' },
+  { key: 'jumlah', label: 'Jumlah', filterable: false, sortable: true, width: '15' },
+  { key: 'nilaiBarang', label: 'Nilai Barang', filterable: false, sortable: true, width: '28' },
+]
+
+export const PEMASUKAN_CONFIG: PageConfig<PemasukanData> = {
+  title: 'Pemasukan Barang',
+  icon: '📈',
+  description: 'Kelola data barang masuk ke gudang',
+  columns: PEMASUKAN_COLUMNS,
+  filterConfig: {
+    showGlobalSearch: true,
+    showDateFilter: true,
+    showPlantFilter: true,
+    showExportButton: true
+  },
+  exportConfig: {
+    filename: 'Pemasukan_Barang',
+    title: 'LAPORAN PEMASUKAN BARANG',
+    formats: ['excel', 'pdf']
+  },
+  tableConfig: {
+    showFooter: true,
+    footerCalculations: [
+      {
+        column: 'nilaiBarang',
+        type: 'sum',
+        label: 'Total Nilai'
+      }
+    ],
+    emptyStateMessage: 'Tidak ada data pemasukan ditemukan',
+    emptyStateIcon: '📦'
+  }
+}
