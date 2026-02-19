@@ -1,3 +1,5 @@
+// src/app/components/useAuth.tsx
+
 'use client'
 
 import { useState, useEffect } from 'react'

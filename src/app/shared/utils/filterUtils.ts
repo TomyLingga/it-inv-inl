@@ -51,7 +51,8 @@ export const applyFilters = <T extends BaseData>(
   searchTerm: string,
   selectedPlant: string,
   dateRange: DateRange,
-  columnFilters: Record<string, string>
+  columnFilters: Record<string, string>,
+  dateFilterField: keyof T = 'tglDokPendaftaran' as keyof T // ← default tetap sama seperti Pemasukan
 ): T[] => {
   let filtered = [...data]
   
@@ -69,11 +70,11 @@ export const applyFilters = <T extends BaseData>(
   //   filtered = filtered.filter(row => (row as any).plant === selectedPlant)
   // }
   
-  // Date range filter
+  // Date range filter — menggunakan field yang dikonfigurasi
   if (dateRange.start && dateRange.end) {
     filtered = filtered.filter(row => {
-      const postingDate = new Date(row.postingDate)
-      return postingDate >= new Date(dateRange.start) && postingDate <= new Date(dateRange.end)
+      const dateValue = new Date(row[dateFilterField] as string)
+      return dateValue >= new Date(dateRange.start) && dateValue <= new Date(dateRange.end)
     })
   }
   

@@ -1,3 +1,5 @@
+// src/app/dashboard/page.tsx
+
 'use client'
 
 import { useEffect } from 'react'

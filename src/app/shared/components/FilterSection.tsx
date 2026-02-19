@@ -2,7 +2,7 @@
 
 'use client'
 import { Search, Calendar, Download } from 'lucide-react'
-import { DateRange, FilterConfig } from '../types'
+import { DateRange, FilterConfig } from '../types'  // ✅ Pastikan import FilterConfig
 
 interface FilterSectionProps {
   // Plant filter
@@ -21,7 +21,7 @@ interface FilterSectionProps {
   showDateFilter?: boolean
   dateRange?: DateRange
   onDateChange?: (field: 'start' | 'end', value: string) => void
-  dateLabel?: string
+  dateLabel?: string  // ✅ Type sudah ada
   
   // Export
   showExportButton?: boolean
@@ -49,7 +49,7 @@ export default function FilterSection({
   showDateFilter = true,
   dateRange,
   onDateChange,
-  dateLabel = 'Filter Tanggal Posting Date',
+  dateLabel = 'Filter Tanggal',  // ✅ FIXED: Default string biasa
   
   showExportButton = true,
   onExportClick,
@@ -58,6 +58,9 @@ export default function FilterSection({
   customFilters,
   config
 }: FilterSectionProps) {
+  // ✅ FIXED: Ambil dateLabel dari config atau props
+  const finalDateLabel = config?.dateLabel || dateLabel || 'Filter Tanggal'
+  
   // Use config if provided
   const finalShowPlant = config?.showPlantFilter ?? showPlantFilter
   const finalShowSearch = config?.showGlobalSearch ?? showGlobalSearch
@@ -122,7 +125,9 @@ export default function FilterSection({
         {/* Date Filter */}
         {finalShowDate && dateRange && (
           <div className='lg:col-span-3'>
-            <label className='block text-xs font-medium text-gray-700 mb-1.5'>{dateLabel}</label>
+            <label className='block text-xs font-medium text-gray-700 mb-1.5'>
+              {finalDateLabel}
+            </label>
             <div className='flex space-x-1 sm:space-x-2'>
               <input
                 type='date'

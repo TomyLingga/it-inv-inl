@@ -67,7 +67,7 @@ export default function StokPage() {
 
   // Apply filters and sorting
   useEffect(() => {
-    const filtered = applyFilters(data, searchTerm, selectedPlant, dateRange, columnFilters)
+    const filtered = applyFilters(data, searchTerm, selectedPlant, dateRange, columnFilters, 'postingDate')
     const sortFn = createSortFunction(sortConfig)
     const sorted = [...filtered].sort(sortFn)
     const resequenced = resequenceData(sorted)

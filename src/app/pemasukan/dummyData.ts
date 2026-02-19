@@ -27,7 +27,7 @@ export const generateDummyPemasukanData = (): PemasukanData[] => {
       tglDokAju: `${randomMonth}-${randomDay}`,
       nomorDokPendaftaran: `PEND-${noStr}/${year}`,
       tglDokPendaftaran: `${randomMonth}-${nextDay}`,
-      nomorDokumen: `DOC-${docNo}`,
+      nomorPo: `DOC-${docNo}`,
       pengirim: ['PT ABC Import', 'PT GHI Corp', 'UD JKL Import', 'PT MNO Trading', 'CV PQR Supplier'][Math.floor(Math.random() * 5)],
       kodeBarang: `BRG${noStr}`,
       kodeHS: `8471.${hsCode}`,

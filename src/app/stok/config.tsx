@@ -31,7 +31,8 @@ export const STOK_CONFIG: PageConfig<StokData> = {
     showGlobalSearch: true,
     showDateFilter: true,
     showPlantFilter: true,
-    showExportButton: true
+    showExportButton: true,
+    dateLabel: "Filter Tanggal Posting Date"
   },
   exportConfig: {
     filename: 'Stok_Barang',

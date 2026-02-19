@@ -27,7 +27,7 @@ export const generateDummyPengeluaranData = (): PengeluaranData[] => {
       tglDokAju: `${randomMonth}-${randomDay}`,
       nomorDokPendaftaran: `PEND-OUT-${noStr}/${year}`,
       tglDokPendaftaran: `${randomMonth}-${nextDay}`,
-      nomorDokumen: `DOC-OUT-${docNo}`,
+      nomorPo: `DOC-OUT-${docNo}`,
       penerima: ['PT XYZ Manufacturing', 'PT DEF Industries', 'CV GHI Export', 'PT JKL Trading', 'UD MNO Supplier'][Math.floor(Math.random() * 5)],
       kodeBarang: `BRG${noStr}`,
       kodeHS: `8471.${hsCode}`,

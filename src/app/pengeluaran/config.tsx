@@ -4,13 +4,13 @@ import { PengeluaranData, ColumnConfig, PageConfig } from '@/app/shared/types'
 
 export const PENGELUARAN_COLUMNS: ColumnConfig<PengeluaranData>[] = [
   { key: 'no', label: 'No', filterable: false, sortable: false, width: '10' },
-  { key: 'postingDate', label: 'Posting Date', filterable: false, sortable: true, width: '22' },
+  { key: 'postingDate', label: 'Posting Date', filterable: true, sortable: true, width: '22' },
   { key: 'jenisDokBC', label: 'Jenis Dok BC', filterable: true, sortable: true },
   { key: 'nomorDokAju', label: 'Nomor Dok Aju', filterable: true, sortable: true },
   { key: 'tglDokAju', label: 'Tgl Dok Aju', filterable: false, sortable: true },
   { key: 'nomorDokPendaftaran', label: 'Nomor Dok Pendftr', filterable: true, sortable: true },
   { key: 'tglDokPendaftaran', label: 'Tgl Dok Pendftr', filterable: false, sortable: true },
-  { key: 'nomorDokumen', label: 'Nomor Dokumen', filterable: true, sortable: true },
+  { key: 'nomorPo', label: 'Nomor PO', filterable: true, sortable: true },
   { 
     key: 'penerima',  // ← BERBEDA dari Pemasukan (pengirim)
     label: 'Penerima', 
@@ -45,7 +45,8 @@ export const PENGELUARAN_CONFIG: PageConfig<PengeluaranData> = {
     showGlobalSearch: true,
     showDateFilter: true,
     showPlantFilter: true,
-    showExportButton: true
+    showExportButton: true,
+    dateLabel: "Filter Tanggal Dokumen Pendaftaran"
   },
   exportConfig: {
     filename: 'Pengeluaran_Barang',

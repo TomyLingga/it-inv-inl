@@ -35,6 +35,7 @@ export interface FilterConfig {
   showDateFilter?: boolean
   showPlantFilter?: boolean
   showExportButton?: boolean
+  dateLabel?: string
   customFilters?: CustomFilter[]
 }
 
@@ -76,7 +77,7 @@ export interface PemasukanData extends BaseData {
   tglDokAju: string
   nomorDokPendaftaran: string
   tglDokPendaftaran: string
-  nomorDokumen: string
+  nomorPo: string
   pengirim: string
   kodeBarang: string
   kodeHS: string
@@ -94,7 +95,7 @@ export interface PengeluaranData extends BaseData {
   tglDokAju: string
   nomorDokPendaftaran: string
   tglDokPendaftaran: string
-  nomorDokumen: string
+  nomorPo: string
   penerima: string  // ← Berbeda dari Pemasukan (pengirim → penerima)
   kodeBarang: string
   kodeHS: string
