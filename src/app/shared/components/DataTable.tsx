@@ -1,7 +1,8 @@
 // src/app/shared/components/DataTable.tsx
 
 'use client'
-import { ArrowUpDown, Filter } from 'lucide-react'
+import { ArrowUpDown, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { BaseData, ColumnConfig, SortConfig, TableConfig } from '../types'
 import { calculateTotal, formatCurrency } from '../utils/filterUtils'
 
@@ -10,17 +11,20 @@ interface DataTableProps<T extends BaseData> {
   columns: ColumnConfig<T>[]
   sortConfig: SortConfig<T>
   onSort: (key: keyof T) => void
-  
+
   columnFilters?: Record<string, string>
   onColumnFilter?: (key: string, value: string) => void
   onClearColumnFilter?: (key: string) => void
-  
+
   showColumnFilter?: string | null
   setShowColumnFilter?: (key: string | null) => void
-  
+
   onClearAllFilters?: () => void
-  
+
   tableConfig?: TableConfig<T>
+
+  // Pagination config (opsional, default 25)
+  pageSize?: number
 }
 
 export default function DataTable<T extends BaseData>({
@@ -34,13 +38,27 @@ export default function DataTable<T extends BaseData>({
   showColumnFilter,
   setShowColumnFilter,
   onClearAllFilters,
-  tableConfig
+  tableConfig,
+  pageSize = 25,
 }: DataTableProps<T>) {
-  
-  // Calculate footer totals if configured
+  const [currentPage, setCurrentPage] = useState(1)
+  const [rowsPerPage, setRowsPerPage] = useState(pageSize)
+
+  // Reset ke halaman 1 ketika data berubah (filter, sort, dll)
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [data.length, rowsPerPage])
+
+  const totalPages = Math.max(1, Math.ceil(data.length / rowsPerPage))
+  const startIdx = (currentPage - 1) * rowsPerPage
+  const endIdx = Math.min(startIdx + rowsPerPage, data.length)
+  const pageData = data.slice(startIdx, endIdx)
+
+  // Footer hanya menghitung data pada halaman ini, atau total semua?
+  // → Kita tampilkan total SEMUA data (lebih informatif)
   const footerTotals: Record<string, number> = {}
   if (tableConfig?.showFooter && tableConfig.footerCalculations) {
-    tableConfig.footerCalculations.forEach(calc => {
+    tableConfig.footerCalculations.forEach((calc) => {
       if (calc.type === 'sum') {
         footerTotals[calc.column as string] = calculateTotal(data, calc.column)
       } else if (calc.type === 'count') {
@@ -49,7 +67,7 @@ export default function DataTable<T extends BaseData>({
     })
   }
 
-  // Empty state
+  // ─── Empty state ─────────────────────────────────────────────────────────────
   if (data.length === 0) {
     return (
       <div className='bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
@@ -74,16 +92,38 @@ export default function DataTable<T extends BaseData>({
     )
   }
 
+  // ─── Pagination controls ──────────────────────────────────────────────────────
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.min(Math.max(1, page), totalPages))
+  }
+
+  // Build page number buttons (max 5 visible)
+  const getPageNumbers = () => {
+    const delta = 2
+    const range: (number | '...')[] = []
+    const left = Math.max(2, currentPage - delta)
+    const right = Math.min(totalPages - 1, currentPage + delta)
+
+    range.push(1)
+    if (left > 2) range.push('...')
+    for (let i = left; i <= right; i++) range.push(i)
+    if (right < totalPages - 1) range.push('...')
+    if (totalPages > 1) range.push(totalPages)
+
+    return range
+  }
+
   return (
     <div className='bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
+      {/* ─── Table ─────────────────────────────────────────────────────────────── */}
       <div className='overflow-x-auto'>
         <table className='w-full'>
-          {/* TABLE HEADER */}
+          {/* HEADER */}
           <thead className='bg-gradient-to-r from-gray-50 to-blue-50 border-b-2 border-gray-200'>
             <tr>
               {columns.map((col) => (
-                <th 
-                  key={col.key as string} 
+                <th
+                  key={col.key as string}
                   className={`px-2 sm:px-3 lg:px-4 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200 last:border-r-0 ${
                     col.sortable ? 'cursor-pointer hover:bg-gray-100' : ''
                   } ${col.className || ''}`}
@@ -91,41 +131,50 @@ export default function DataTable<T extends BaseData>({
                 >
                   <div className='flex items-center justify-between space-x-1 sm:space-x-2'>
                     <span className='truncate'>{col.label}</span>
-                    
-                    {/* Sort Icon */}
+
                     {col.sortable && (
                       <div className='flex items-center space-x-0.5'>
-                        <ArrowUpDown className={`w-3 h-3 sm:w-4 sm:h-4 text-gray-400 ${
-                          sortConfig.key === col.key ? 'text-blue-600' : ''
-                        }`} />
+                        <ArrowUpDown
+                          className={`w-3 h-3 sm:w-4 sm:h-4 text-gray-400 ${
+                            sortConfig.key === col.key ? 'text-blue-600' : ''
+                          }`}
+                        />
                         {sortConfig.key === col.key && (
-                          <span className={`text-xs ${
-                            sortConfig.direction === 'desc' ? 'text-blue-600 font-medium' : 'text-gray-500'
-                          }`}>
+                          <span
+                            className={`text-xs ${
+                              sortConfig.direction === 'desc'
+                                ? 'text-blue-600 font-medium'
+                                : 'text-gray-500'
+                            }`}
+                          >
                             {sortConfig.direction === 'desc' ? '↓' : '↑'}
                           </span>
                         )}
                       </div>
                     )}
-                    
-                    {/* Filter Icon */}
+
                     {col.filterable && onColumnFilter && (
                       <div className='relative flex-shrink-0 ml-1'>
-                        <Filter 
+                        <Filter
                           className={`w-3 h-3 sm:w-4 sm:h-4 cursor-pointer transition-colors ${
-                            columnFilters[col.key as string] ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'
+                            columnFilters[col.key as string]
+                              ? 'text-blue-600'
+                              : 'text-gray-400 hover:text-gray-600'
                           }`}
                           onClick={(e) => {
                             e.stopPropagation()
-                            setShowColumnFilter?.(showColumnFilter === col.key ? null : col.key as string)
+                            setShowColumnFilter?.(
+                              showColumnFilter === col.key ? null : (col.key as string)
+                            )
                           }}
                         />
-                        
-                        {/* Filter Dropdown */}
+
                         {showColumnFilter === col.key && (
                           <div className='absolute top-6 right-0 z-50 bg-white border border-gray-300 rounded-lg shadow-xl p-2.5 sm:p-3 w-56 sm:w-64'>
                             <div className='mb-1.5 sm:mb-2'>
-                              <label className='text-xs font-medium text-gray-700'>Filter {col.label}</label>
+                              <label className='text-xs font-medium text-gray-700'>
+                                Filter {col.label}
+                              </label>
                             </div>
                             <input
                               type='text'
@@ -159,22 +208,21 @@ export default function DataTable<T extends BaseData>({
             </tr>
           </thead>
 
-          {/* TABLE BODY */}
+          {/* BODY */}
           <tbody className='divide-y divide-gray-200 bg-white'>
-            {data.map((row, idx) => (
-              <tr 
-                key={`${row.no}-${idx}`} 
+            {pageData.map((row, idx) => (
+              <tr
+                key={`${row.no}-${idx}`}
                 className={`hover:bg-blue-50 transition-colors ${
                   idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
                 }`}
               >
                 {columns.map((col) => {
                   const value = row[col.key]
-                  
-                  // Custom render function
+
                   if (col.render) {
                     return (
-                      <td 
+                      <td
                         key={col.key as string}
                         className={`px-2 sm:px-3 lg:px-4 py-2.5 text-xs sm:text-sm ${col.className || ''}`}
                       >
@@ -182,14 +230,14 @@ export default function DataTable<T extends BaseData>({
                       </td>
                     )
                   }
-                  
-                  // Default rendering
+
                   let displayValue: React.ReactNode = value
-                  let cellClass = 'px-2 sm:px-3 lg:px-4 py-2.5 text-xs sm:text-sm text-gray-700'
-                  
-                  // Special formatting based on column key
+                  let cellClass =
+                    'px-2 sm:px-3 lg:px-4 py-2.5 text-xs sm:text-sm text-gray-700'
+
                   if (col.key === 'no') {
-                    cellClass = 'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900'
+                    cellClass =
+                      'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900'
                   } else if (col.key === 'postingDate') {
                     cellClass = 'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm'
                     displayValue = (
@@ -197,14 +245,22 @@ export default function DataTable<T extends BaseData>({
                         {value}
                       </span>
                     )
-                  } else if (typeof value === 'number' && col.key.toString().includes('nilai')) {
-                    cellClass = 'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm font-bold text-gray-900'
+                  } else if (
+                    typeof value === 'number' &&
+                    col.key.toString().includes('nilai')
+                  ) {
+                    cellClass =
+                      'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm font-bold text-gray-900'
                     displayValue = formatCurrency(value)
-                  } else if (typeof value === 'number' && col.key.toString().includes('jumlah')) {
-                    cellClass = 'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm font-semibold text-green-600'
+                  } else if (
+                    typeof value === 'number' &&
+                    col.key.toString().includes('jumlah')
+                  ) {
+                    cellClass =
+                      'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm font-semibold text-green-600'
                     displayValue = value.toLocaleString('id-ID')
                   }
-                  
+
                   return (
                     <td key={col.key as string} className={cellClass}>
                       {displayValue}
@@ -215,13 +271,13 @@ export default function DataTable<T extends BaseData>({
             ))}
           </tbody>
 
-          {/* TABLE FOOTER */}
+          {/* FOOTER — total semua data */}
           {tableConfig?.showFooter && tableConfig?.footerCalculations?.length ? (
-            <tfoot className='bg-gradient-to-r from-emerald-50 to-green-50 border-t-2 border-emerald-200 sticky bottom-0 z-10'>
+            <tfoot className='bg-gradient-to-r from-emerald-50 to-green-50 border-t-2 border-emerald-200'>
               <tr className='border-t-2 border-emerald-300'>
                 {columns.map((col) => {
                   const calculation = tableConfig.footerCalculations?.find(
-                    calc => calc.column === col.key
+                    (calc) => calc.column === col.key
                   )
 
                   if (!calculation) {
@@ -249,8 +305,95 @@ export default function DataTable<T extends BaseData>({
               </tr>
             </tfoot>
           ) : null}
-
         </table>
+      </div>
+
+      {/* ─── Pagination Bar ───────────────────────────────────────────────────── */}
+      <div className='flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-200 bg-gray-50'>
+        {/* Info kiri */}
+        <div className='flex items-center gap-3 text-xs text-gray-600'>
+          <span>
+            Menampilkan{' '}
+            <span className='font-semibold text-gray-900'>{startIdx + 1}</span>–
+            <span className='font-semibold text-gray-900'>{endIdx}</span> dari{' '}
+            <span className='font-semibold text-gray-900'>{data.length}</span> data
+          </span>
+
+          {/* Rows per page */}
+          <div className='flex items-center gap-1.5'>
+            <span>Baris:</span>
+            <select
+              value={rowsPerPage}
+              onChange={(e) => setRowsPerPage(Number(e.target.value))}
+              className='border border-gray-300 rounded px-1.5 py-0.5 text-xs bg-white focus:ring-1 focus:ring-blue-500'
+            >
+              {[10, 25, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Tombol navigasi */}
+        {totalPages > 1 && (
+          <div className='flex items-center gap-1'>
+            <button
+              onClick={() => goToPage(1)}
+              disabled={currentPage === 1}
+              className='p-1.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors'
+              title='Halaman pertama'
+            >
+              <ChevronsLeft className='w-4 h-4' />
+            </button>
+            <button
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className='p-1.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors'
+              title='Halaman sebelumnya'
+            >
+              <ChevronLeft className='w-4 h-4' />
+            </button>
+
+            {getPageNumbers().map((page, i) =>
+              page === '...' ? (
+                <span key={`ellipsis-${i}`} className='px-1 text-gray-400 text-xs'>
+                  …
+                </span>
+              ) : (
+                <button
+                  key={page}
+                  onClick={() => goToPage(page as number)}
+                  className={`min-w-[28px] h-7 px-1 rounded text-xs font-medium transition-colors ${
+                    currentPage === page
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  {page}
+                </button>
+              )
+            )}
+
+            <button
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className='p-1.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors'
+              title='Halaman berikutnya'
+            >
+              <ChevronRight className='w-4 h-4' />
+            </button>
+            <button
+              onClick={() => goToPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className='p-1.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors'
+              title='Halaman terakhir'
+            >
+              <ChevronsRight className='w-4 h-4' />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
