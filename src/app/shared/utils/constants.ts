@@ -5,22 +5,22 @@ export const PLANT_OPTIONS = [
   { value: 'IN02', label: 'IN02 - Plant Surabaya' }
 ]
 
-export const JENIS_DOK_BC_OPTIONS = [
-  { value: '', label: 'Semua Jenis' },
-  { value: 'SP2', label: 'SP2' },
-  { value: 'PIB', label: 'PIB' },
-  { value: 'BC23', label: 'BC23' },
-  { value: 'BC25', label: 'BC25' }
-]
+// export const JENIS_DOK_BC_OPTIONS = [
+//   { value: '', label: 'Semua Jenis' },
+//   { value: 'SP2', label: 'SP2' },
+//   { value: 'PIB', label: 'PIB' },
+//   { value: 'BC23', label: 'BC23' },
+//   { value: 'BC25', label: 'BC25' }
+// ]
 
-export const SATUAN_OPTIONS = [
-  { value: '', label: 'Semua Satuan' },
-  { value: 'PCS', label: 'PCS' },
-  { value: 'SET', label: 'SET' },
-  { value: 'UNIT', label: 'UNIT' },
-  { value: 'KG', label: 'KG' },
-  { value: 'LITER', label: 'LITER' }
-]
+// export const SATUAN_OPTIONS = [
+//   { value: '', label: 'Semua Satuan' },
+//   { value: 'PCS', label: 'PCS' },
+//   { value: 'SET', label: 'SET' },
+//   { value: 'UNIT', label: 'UNIT' },
+//   { value: 'KG', label: 'KG' },
+//   { value: 'LITER', label: 'LITER' }
+// ]
 
 export const DEFAULT_SORT_CONFIG = {
   key: 'postingDate',

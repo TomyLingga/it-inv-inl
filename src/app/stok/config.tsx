@@ -27,6 +27,7 @@ export const STOK_COLUMNS: ColumnConfig<StokData>[] = [
       </span>
     ),
   },
+  { key: 'lokasiId',      label: 'Lokasi ID',        filterable: true,  sortable: true,  width: '12' },
   { key: 'satuan',      label: 'Satuan',        filterable: true,  sortable: true,  width: '12' },
   { key: 'jumlah',      label: 'Jumlah',        filterable: false, sortable: true,  width: '15' },
   { key: 'nilaiBarang', label: 'Nilai Barang',   filterable: false, sortable: true,  width: '28' },
@@ -52,7 +53,6 @@ export const STOK_CONFIG: PageConfig<StokData> = {
   tableConfig: {
     showFooter: true,
     footerCalculations: [
-      { column: 'jumlah',      type: 'sum', label: 'Total Jumlah' },
       { column: 'nilaiBarang', type: 'sum', label: 'Total Nilai'  },
     ],
     emptyStateMessage: 'Tidak ada data stok ditemukan',

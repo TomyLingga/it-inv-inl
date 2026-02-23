@@ -111,8 +111,8 @@ export interface StokData extends BaseData {
   kodeBarang: string
   kodeHS: string
   namaBarang: string
-  lokasi: string       // ← BARU: LOCATION dari SAP
-  namaLokasi: string   // ← BARU: NAMA_LOCATION dari SAP
+  lokasi: string
+  lokasiId: string
   satuan: string
   jumlah: number
   nilaiBarang: number
