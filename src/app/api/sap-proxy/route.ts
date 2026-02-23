@@ -3,10 +3,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import https from 'https'
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<Response> {
   const authHeader = request.headers.get('authorization')
   
-  return new Promise((resolve) => {
+  return new Promise<Response>((resolve) => {
     const options = {
       hostname: '108.136.81.204',
       port: 44303,
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
         'Authorization': authHeader || '',
         'x-csrf-token': 'fetch',
       },
-      rejectUnauthorized: false // Bypass SSL
+      rejectUnauthorized: false
     }
 
     const req = https.request(options, (res) => {
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
             status: res.statusCode || 200,
             headers: {
               'Content-Type': 'application/json',
-              'x-csrf-token': csrfToken as string || '',
+              'x-csrf-token': (csrfToken as string) || '',
               ...(setCookie && { 'Set-Cookie': setCookie.join(', ') })
             }
           })

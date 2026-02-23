@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import https from 'https'
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<Response> {
   const csrfToken = request.headers.get('x-csrf-token')
   const authHeader = request.headers.get('authorization')
   const cookieHeader = request.headers.get('cookie')
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
   const postData = JSON.stringify(body)
 
-  return new Promise((resolve) => {
+  return new Promise<Response>((resolve) => {
     const options = {
       hostname: '108.136.81.204',
       port: 44303,
