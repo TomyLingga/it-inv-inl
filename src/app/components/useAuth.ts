@@ -13,7 +13,7 @@ interface AuthState {
 // Durasi token sebelum di-refresh (dalam milidetik).
 // Set lebih pendek dari TTL asli SAP agar tidak sempat expired.
 // Contoh: SAP expired 30 menit → kita refresh tiap 20 menit.
-const TOKEN_REFRESH_INTERVAL_MS = 20 * 60 * 1000
+const TOKEN_REFRESH_INTERVAL_MS = 5 * 60 * 1000
 
 const API_BASE = '/api/sap-proxy'
 
