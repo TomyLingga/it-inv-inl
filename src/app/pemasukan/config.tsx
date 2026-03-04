@@ -11,10 +11,10 @@ export const PEMASUKAN_COLUMNS: ColumnConfig<PemasukanData>[] = [
   { key: 'nomorDokPendaftaran', label: 'Nomor Dok Pendftr', filterable: true, sortable: true },
   { key: 'tglDokPendaftaran', label: 'Tgl Dok Pendftr', filterable: false, sortable: true },
   { key: 'nomorPo', label: 'Nomor PO', filterable: true, sortable: true },
-  { 
-    key: 'pengirim', 
-    label: 'Pengirim', 
-    filterable: true, 
+  {
+    key: 'pengirim',
+    label: 'Pengirim',
+    filterable: true,
     sortable: true,
     render: (value) => (
       <span className='text-gray-900 max-w-xs truncate block'>{value}</span>
@@ -22,10 +22,10 @@ export const PEMASUKAN_COLUMNS: ColumnConfig<PemasukanData>[] = [
   },
   { key: 'kodeBarang', label: 'Kode Barang', filterable: true, sortable: true },
   { key: 'kodeHS', label: 'Kode HS', filterable: true, sortable: true },
-  { 
-    key: 'namaBarang', 
-    label: 'Nama Barang', 
-    filterable: true, 
+  {
+    key: 'namaBarang',
+    label: 'Nama Barang',
+    filterable: true,
     sortable: true,
     render: (value) => (
       <span className='text-gray-900 max-w-[200px] sm:max-w-md truncate block'>{value}</span>
@@ -56,6 +56,11 @@ export const PEMASUKAN_CONFIG: PageConfig<PemasukanData> = {
   tableConfig: {
     showFooter: true,
     footerCalculations: [
+      {
+        column: 'jumlah',      // ← tambahan
+        type: 'sum',
+        label: 'Total Jumlah'
+      },
       {
         column: 'nilaiBarang',
         type: 'sum',

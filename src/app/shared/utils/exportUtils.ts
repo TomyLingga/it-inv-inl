@@ -54,7 +54,7 @@ export const exportToPDF = <T extends BaseData>(
   const doc = new jsPDF('l', 'mm', 'a4')
   const pageWidth = doc.internal.pageSize.getWidth()
 
-  // ─── Hitung total untuk kolom numerik ──────────────────────────────────────
+  // ─── Hitung total untuk SEMUA kolom numerik ──────────────────────────────
   const numericTotals: Record<string, number> = {}
   columns.forEach(col => {
     if (typeof data[0]?.[col.key] === 'number') {
@@ -65,7 +65,7 @@ export const exportToPDF = <T extends BaseData>(
     }
   })
 
-  // ─── Header dokumen ────────────────────────────────────────────────────────
+  // ─── Header dokumen ───────────────────────────────────────────────────────
   doc.setFontSize(20)
   doc.setFont('helvetica', 'bold')
   doc.text(title, pageWidth / 2, 15, { align: 'center' })
@@ -75,10 +75,10 @@ export const exportToPDF = <T extends BaseData>(
   doc.text(`Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`, pageWidth / 2, 25, { align: 'center' })
   doc.text(`Total Data: ${data.length}`, pageWidth / 2, 32, { align: 'center' })
 
-  // ─── Table headers ─────────────────────────────────────────────────────────
+  // ─── Table headers ────────────────────────────────────────────────────────
   const headers = columns.map(col => col.label)
 
-  // ─── Table body ────────────────────────────────────────────────────────────
+  // ─── Table body ───────────────────────────────────────────────────────────
   const body = data.map(row =>
     columns.map(col => {
       const value = row[col.key]
@@ -92,21 +92,28 @@ export const exportToPDF = <T extends BaseData>(
     })
   )
 
-  // ─── Footer row total ──────────────────────────────────────────────────────
-  // Hanya kolom 'nilaiBarang' yang ditampilkan totalnya
-  // Label 'TOTAL' ditaruh di kolom ke-2 (idx === 1) agar lebih rapi
+  // ─── Footer row: tampilkan total jumlah DAN nilai ─────────────────────────
+  // Label "TOTAL" di kolom ke-2 (idx 1), kolom lain diisi total jika numerik
   const footerRow = columns.map((col, idx) => {
     if (idx === 1) return 'TOTAL'
 
     const key = col.key as string
-    // Hanya tampilkan total untuk kolom yang mengandung 'nilai'
-    if (key.includes('nilai') && numericTotals[key] !== undefined) {
+    if (numericTotals[key] === undefined) return ''
+
+    if (key.includes('nilai')) {
+      // Nilai barang → format currency
       return `Rp ${numericTotals[key].toLocaleString('id-ID')}`
     }
+
+    if (key.includes('jumlah')) {
+      // Jumlah → angka biasa dengan separator
+      return numericTotals[key].toLocaleString('id-ID')
+    }
+
     return ''
   })
 
-  // ─── Column widths ─────────────────────────────────────────────────────────
+  // ─── Column widths ────────────────────────────────────────────────────────
   const columnStyles: { [key: number]: { cellWidth: number } } = {}
   columns.forEach((col, idx) => {
     if (col.width) {
@@ -114,7 +121,7 @@ export const exportToPDF = <T extends BaseData>(
     }
   })
 
-  // ─── Render tabel ──────────────────────────────────────────────────────────
+  // ─── Render tabel ─────────────────────────────────────────────────────────
   autoTable(doc, {
     head: [headers],
     body,
@@ -134,7 +141,7 @@ export const exportToPDF = <T extends BaseData>(
       fontStyle: 'bold',
     },
     footStyles: {
-      fillColor: [16, 185, 129],  // emerald-500
+      fillColor: [16, 185, 129],
       textColor: 255,
       fontStyle: 'bold',
       fontSize: 8,
@@ -144,7 +151,7 @@ export const exportToPDF = <T extends BaseData>(
     },
     margin: { left: 10, right: 10 },
     columnStyles,
-    showFoot: 'lastPage', // total hanya muncul di halaman terakhir
+    showFoot: 'lastPage',
     didDrawPage: (hookData) => {
       const pageCount = doc.getNumberOfPages()
       const cursorY = hookData.cursor?.y ?? 40

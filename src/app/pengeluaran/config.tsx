@@ -57,6 +57,11 @@ export const PENGELUARAN_CONFIG: PageConfig<PengeluaranData> = {
     showFooter: true,
     footerCalculations: [
       {
+        column: 'jumlah',       // ← tambahan
+        type: 'sum',
+        label: 'Total Jumlah',
+      },
+      {
         column: 'nilaiBarang',
         type: 'sum',
         label: 'Total Nilai',

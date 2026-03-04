@@ -1,4 +1,5 @@
 // src/app/shared/components/DataTable.tsx
+// Perubahan: footer kini membedakan format jumlah (angka biasa) vs nilai (currency)
 
 'use client'
 import { ArrowUpDown, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
@@ -23,7 +24,6 @@ interface DataTableProps<T extends BaseData> {
 
   tableConfig?: TableConfig<T>
 
-  // Pagination config (opsional, default 25)
   pageSize?: number
 }
 
@@ -44,7 +44,6 @@ export default function DataTable<T extends BaseData>({
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(pageSize)
 
-  // Reset ke halaman 1 ketika data berubah (filter, sort, dll)
   useEffect(() => {
     setCurrentPage(1)
   }, [data.length, rowsPerPage])
@@ -54,8 +53,7 @@ export default function DataTable<T extends BaseData>({
   const endIdx = Math.min(startIdx + rowsPerPage, data.length)
   const pageData = data.slice(startIdx, endIdx)
 
-  // Footer hanya menghitung data pada halaman ini, atau total semua?
-  // → Kita tampilkan total SEMUA data (lebih informatif)
+  // Hitung footer totals dari SEMUA data (bukan hanya halaman ini)
   const footerTotals: Record<string, number> = {}
   if (tableConfig?.showFooter && tableConfig.footerCalculations) {
     tableConfig.footerCalculations.forEach((calc) => {
@@ -67,7 +65,15 @@ export default function DataTable<T extends BaseData>({
     })
   }
 
-  // ─── Empty state ─────────────────────────────────────────────────────────────
+  // ─── Helper: format nilai footer sesuai tipe kolom ───────────────────────
+  const formatFooterValue = (colKey: string, value: number): string => {
+    const key = colKey.toLowerCase()
+    if (key.includes('nilai')) return formatCurrency(value)
+    // jumlah → angka biasa dengan separator ribuan
+    return value.toLocaleString('id-ID')
+  }
+
+  // ─── Empty state ──────────────────────────────────────────────────────────
   if (data.length === 0) {
     return (
       <div className='bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
@@ -92,12 +98,10 @@ export default function DataTable<T extends BaseData>({
     )
   }
 
-  // ─── Pagination controls ──────────────────────────────────────────────────────
   const goToPage = (page: number) => {
     setCurrentPage(Math.min(Math.max(1, page), totalPages))
   }
 
-  // Build page number buttons (max 5 visible)
   const getPageNumbers = () => {
     const delta = 2
     const range: (number | '...')[] = []
@@ -115,7 +119,6 @@ export default function DataTable<T extends BaseData>({
 
   return (
     <div className='bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
-      {/* ─── Table ─────────────────────────────────────────────────────────────── */}
       <div className='overflow-x-auto'>
         <table className='w-full'>
           {/* HEADER */}
@@ -232,12 +235,10 @@ export default function DataTable<T extends BaseData>({
                   }
 
                   let displayValue: React.ReactNode = value
-                  let cellClass =
-                    'px-2 sm:px-3 lg:px-4 py-2.5 text-xs sm:text-sm text-gray-700'
+                  let cellClass = 'px-2 sm:px-3 lg:px-4 py-2.5 text-xs sm:text-sm text-gray-700'
 
                   if (col.key === 'no') {
-                    cellClass =
-                      'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900'
+                    cellClass = 'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900'
                   } else if (col.key === 'postingDate') {
                     cellClass = 'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm'
                     displayValue = (
@@ -245,19 +246,11 @@ export default function DataTable<T extends BaseData>({
                         {value}
                       </span>
                     )
-                  } else if (
-                    typeof value === 'number' &&
-                    col.key.toString().includes('nilai')
-                  ) {
-                    cellClass =
-                      'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm font-bold text-gray-900'
+                  } else if (typeof value === 'number' && col.key.toString().includes('nilai')) {
+                    cellClass = 'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm font-bold text-gray-900'
                     displayValue = formatCurrency(value)
-                  } else if (
-                    typeof value === 'number' &&
-                    col.key.toString().includes('jumlah')
-                  ) {
-                    cellClass =
-                      'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm font-semibold text-green-600'
+                  } else if (typeof value === 'number' && col.key.toString().includes('jumlah')) {
+                    cellClass = 'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm font-semibold text-green-600'
                     displayValue = value.toLocaleString('id-ID')
                   }
 
@@ -271,34 +264,42 @@ export default function DataTable<T extends BaseData>({
             ))}
           </tbody>
 
-          {/* FOOTER — total semua data */}
+          {/* FOOTER */}
           {tableConfig?.showFooter && tableConfig?.footerCalculations?.length ? (
             <tfoot className='bg-gradient-to-r from-emerald-50 to-green-50 border-t-2 border-emerald-200'>
               <tr className='border-t-2 border-emerald-300'>
-                {columns.map((col) => {
+                {columns.map((col, colIdx) => {
                   const calculation = tableConfig.footerCalculations?.find(
                     (calc) => calc.column === col.key
                   )
 
-                  if (!calculation) {
+                  // Kolom pertama → label "TOTAL"
+                  if (colIdx === 0) {
                     return (
-                      <td
-                        key={col.key as string}
-                        className='px-3 py-2 text-sm font-semibold text-gray-700'
-                      >
-                        {col.key === columns[0].key ? 'TOTAL' : ''}
+                      <td key={col.key as string} className='px-3 py-2 text-xs font-bold text-emerald-800 uppercase tracking-wide'>
+                        TOTAL
                       </td>
                     )
                   }
 
-                  const totalValue = footerTotals[col.key as string] || 0
+                  if (!calculation) {
+                    return (
+                      <td key={col.key as string} className='px-3 py-2' />
+                    )
+                  }
+
+                  const totalValue = footerTotals[col.key as string] ?? 0
+                  const formatted = formatFooterValue(col.key as string, totalValue)
+
+                  // Bedakan warna: jumlah → biru, nilai → emerald
+                  const isNilai = (col.key as string).toLowerCase().includes('nilai')
+                  const textClass = isNilai
+                    ? 'text-emerald-700'
+                    : 'text-blue-700'
 
                   return (
-                    <td
-                      key={col.key as string}
-                      className='px-3 py-2 text-sm font-bold text-emerald-700'
-                    >
-                      {formatCurrency(totalValue)}
+                    <td key={col.key as string} className={`px-3 py-2 text-xs sm:text-sm font-bold whitespace-nowrap ${textClass}`}>
+                      {formatted}
                     </td>
                   )
                 })}
@@ -310,7 +311,6 @@ export default function DataTable<T extends BaseData>({
 
       {/* ─── Pagination Bar ───────────────────────────────────────────────────── */}
       <div className='flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-200 bg-gray-50'>
-        {/* Info kiri */}
         <div className='flex items-center gap-3 text-xs text-gray-600'>
           <span>
             Menampilkan{' '}
@@ -319,7 +319,6 @@ export default function DataTable<T extends BaseData>({
             <span className='font-semibold text-gray-900'>{data.length}</span> data
           </span>
 
-          {/* Rows per page */}
           <div className='flex items-center gap-1.5'>
             <span>Baris:</span>
             <select
@@ -328,68 +327,42 @@ export default function DataTable<T extends BaseData>({
               className='border border-gray-300 rounded px-1.5 py-0.5 text-xs bg-white focus:ring-1 focus:ring-blue-500'
             >
               {[10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
+                <option key={n} value={n}>{n}</option>
               ))}
             </select>
           </div>
         </div>
 
-        {/* Tombol navigasi */}
         {totalPages > 1 && (
           <div className='flex items-center gap-1'>
-            <button
-              onClick={() => goToPage(1)}
-              disabled={currentPage === 1}
-              className='p-1.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors'
-              title='Halaman pertama'
-            >
+            <button onClick={() => goToPage(1)} disabled={currentPage === 1}
+              className='p-1.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors' title='Halaman pertama'>
               <ChevronsLeft className='w-4 h-4' />
             </button>
-            <button
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className='p-1.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors'
-              title='Halaman sebelumnya'
-            >
+            <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}
+              className='p-1.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors' title='Halaman sebelumnya'>
               <ChevronLeft className='w-4 h-4' />
             </button>
 
             {getPageNumbers().map((page, i) =>
               page === '...' ? (
-                <span key={`ellipsis-${i}`} className='px-1 text-gray-400 text-xs'>
-                  …
-                </span>
+                <span key={`ellipsis-${i}`} className='px-1 text-gray-400 text-xs'>…</span>
               ) : (
-                <button
-                  key={page}
-                  onClick={() => goToPage(page as number)}
+                <button key={page} onClick={() => goToPage(page as number)}
                   className={`min-w-[28px] h-7 px-1 rounded text-xs font-medium transition-colors ${
-                    currentPage === page
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'hover:bg-gray-200 text-gray-700'
-                  }`}
-                >
+                    currentPage === page ? 'bg-blue-600 text-white shadow-sm' : 'hover:bg-gray-200 text-gray-700'
+                  }`}>
                   {page}
                 </button>
               )
             )}
 
-            <button
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className='p-1.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors'
-              title='Halaman berikutnya'
-            >
+            <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}
+              className='p-1.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors' title='Halaman berikutnya'>
               <ChevronRight className='w-4 h-4' />
             </button>
-            <button
-              onClick={() => goToPage(totalPages)}
-              disabled={currentPage === totalPages}
-              className='p-1.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors'
-              title='Halaman terakhir'
-            >
+            <button onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages}
+              className='p-1.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors' title='Halaman terakhir'>
               <ChevronsRight className='w-4 h-4' />
             </button>
           </div>
