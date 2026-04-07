@@ -27,27 +27,34 @@ import {
 import { PENGELUARAN_CONFIG } from './config'
 
 // ─── SAP response → PengeluaranData mapper ────────────────────────────────────
-function mapSapToPengeluaran(raw: any[], startNo = 1): PengeluaranData[] {
-  return raw.map((item, idx) => ({
-    no: startNo + idx,
-    postingDate: item.BUDAT ?? '',
-    jenisDokBC: item.JENISDOK ?? '',
-    nomorDokAju: item.NOAJU ?? '',
-    tglDokAju: item.TGLAJU ?? '',
-    nomorDokPendaftaran: item.NOPENDT ?? '',
-    tglDokPendaftaran: item.TGLPEND ?? '',
-    nomorPo: item.EBELN ?? '',
-    penerima: item.VENDOR ?? '',
-    kodeBarang: item.KODEBRG ?? '',
-    kodeHS: item.CODEHS ?? '',
-    namaBarang: item.NAMABRG ?? '',
-    satuan: item.SATUAN ?? '',
-    jumlah: Number(item.JUMLAH) || 0,
-    nilaiBarang: Number(item.NILAIBRG) || 0,
-  }))
+function mapSapToPengeluaran(raw: any[]): PengeluaranData[] {
+  return raw.map((item, idx) => {
+    // Hapus titik dan ganti koma dengan titik, lalu konversi ke float
+    const nilaiBarang = parseFloat(
+      item.NILAIBRG.replace(/\./g, '').replace(',', '.')
+    );
+
+    return {
+      no: idx + 1,
+      postingDate: item.BUDAT ?? '',
+      jenisDokBC: item.JENISDOK ?? '',
+      nomorDokAju: item.NOAJU ?? '',
+      tglDokAju: item.TGLAJU ?? '',
+      nomorDokPendaftaran: item.NOPENDT ?? '',
+      tglDokPendaftaran: item.TGLPEND ?? '',
+      nomorPo: item.EBELN ?? '',
+      penerima: item.VENDOR ?? '',
+      kodeBarang: item.KODEBRG ?? '',
+      kodeHS: item.CODEHS ?? '',
+      namaBarang: item.NAMABRG ?? '',
+      satuan: item.SATUAN ?? '',
+      jumlah: Number(item.JUMLAH) || 0,
+      nilaiBarang, // Sekarang sudah sebagai number
+    };
+  });
 }
 
-// ─── Format date for SAP request body: YYYYMMDD ────────────────────────────────
+// ─── Format date for SAP: YYYYMMDD ───────────────────────────────────────────
 function toSapDate(isoDate: string): string {
   return isoDate.replace(/-/g, '')
 }
@@ -80,15 +87,20 @@ export default function PengeluaranPage() {
   const [showExportModal, setShowExportModal] = useState(false)
   const [exportFormat, setExportFormat] = useState<ExportFormat>('excel')
 
-  // ─── Fetch from SAP ─────────────────────────────────────────────────────────
+  // ─── Fetch dari SAP ──────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     if (!csrfToken) return
 
     setIsFetching(true)
     setFetchError(null)
 
+    // Filter menggunakan Posting Date (BUDAT) — bukan Tgl Dok Pendaftaran
     const requestBody = {
-      I_TGLDOKPEND: [
+      I_TGLDOKPEND: [],
+      I_JENISDOK: [],
+      I_NAMABRG: '',
+      I_PLANT: selectedPlant || '',
+      I_PSTINGDATE: [
         {
           SIGN: 'I',
           OPTION: 'BT',
@@ -96,15 +108,6 @@ export default function PengeluaranPage() {
           HIGH: toSapDate(dateRange.end),
         },
       ],
-      ' I_JENISDOK': [
-        {
-          SIGN: '',
-          OPTION: '',
-          LOW: '',
-        },
-      ],
-      I_NAMABRG: '',
-      I_PLANT: selectedPlant || '',
     }
 
     try {
@@ -118,7 +121,6 @@ export default function PengeluaranPage() {
         body: JSON.stringify(requestBody),
       })
 
-      // CSRF expired or unauthorized → logout
       if (res.status === 403 || res.status === 401) {
         logout()
         router.replace('/')
@@ -133,9 +135,10 @@ export default function PengeluaranPage() {
       }
 
       const json = await res.json()
+      const rawArray: any[] = Array.isArray(json)
+        ? json
+        : json.data ?? json.results ?? []
 
-      // SAP bisa wrap hasil di property berbeda; sesuaikan kalau perlu
-      const rawArray: any[] = Array.isArray(json) ? json : json.data ?? json.results ?? []
       const mapped = mapSapToPengeluaran(rawArray)
       setData(mapped)
     } catch (err: any) {
@@ -145,7 +148,7 @@ export default function PengeluaranPage() {
     }
   }, [csrfToken, dateRange, selectedPlant, logout, router])
 
-  // ─── Init ────────────────────────────────────────────────────────────────────
+  // ─── Init ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     setIsClient(true)
   }, [])
@@ -156,14 +159,13 @@ export default function PengeluaranPage() {
     }
   }, [isAuthenticated, loading, router])
 
-  // Fetch whenever filter params change (setelah auth siap)
   useEffect(() => {
     if (isAuthenticated && !loading && csrfToken) {
       fetchData()
     }
   }, [isAuthenticated, loading, csrfToken, dateRange, selectedPlant])
 
-  // ─── Client-side filtering + sorting ─────────────────────────────────────────
+  // ─── Client-side filter + sort — gunakan postingDate sebagai date filter field
   useEffect(() => {
     const filtered = applyFilters(
       data,
@@ -171,7 +173,7 @@ export default function PengeluaranPage() {
       selectedPlant,
       dateRange,
       columnFilters,
-      'tglDokPendaftaran' // field tanggal yang dipakai untuk filter date range lokal
+      'postingDate'   // ← filter lokal juga pakai postingDate
     )
     const sortFn = createSortFunction(sortConfig)
     const sorted = [...filtered].sort(sortFn)
@@ -179,7 +181,7 @@ export default function PengeluaranPage() {
     setFilteredData(resequenced)
   }, [data, searchTerm, columnFilters, sortConfig])
 
-  // ─── Handlers ────────────────────────────────────────────────────────────────
+  // ─── Handlers ────────────────────────────────────────────────────────────
   const handleSort = (key: keyof PengeluaranData) => {
     setSortConfig((prev) => ({
       key,
@@ -215,7 +217,7 @@ export default function PengeluaranPage() {
     setShowColumnFilter(null)
   }
 
-  // ─── Loading & Auth ───────────────────────────────────────────────────────────
+  // ─── Loading & Auth ───────────────────────────────────────────────────────
   if (!isClient || loading) {
     return (
       <div className='flex h-screen bg-gray-50 items-center justify-center'>
@@ -262,17 +264,19 @@ export default function PengeluaranPage() {
                 <span className='text-sm text-red-700'>⚠️ {fetchError}</span>
                 <button
                   onClick={fetchData}
-                  className='text-xs text-red-600 underline hover:text-red-800'
+                  className='text-xs text-red-600 underline hover:text-red-800 ml-4 flex-shrink-0'
                 >
                   Coba lagi
                 </button>
               </div>
             )}
 
-            {/* Loading Overlay */}
+            {/* Loading Indicator */}
             {isFetching && (
               <div className='mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg'>
-                <span className='text-sm text-blue-700 animate-pulse'>⏳ Mengambil data dari SAP...</span>
+                <span className='text-sm text-blue-700 animate-pulse'>
+                  ⏳ Mengambil data dari SAP...
+                </span>
               </div>
             )}
 
@@ -285,7 +289,9 @@ export default function PengeluaranPage() {
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
               dateRange={dateRange}
-              onDateChange={(field, value) => setDateRange((prev) => ({ ...prev, [field]: value }))}
+              onDateChange={(field, value) =>
+                setDateRange((prev) => ({ ...prev, [field]: value }))
+              }
               onExportClick={() => setShowExportModal(true)}
               dataCount={filteredData.length}
             />
@@ -324,12 +330,15 @@ export default function PengeluaranPage() {
               sortConfig={sortConfig}
               onSort={handleSort}
               columnFilters={columnFilters}
-              onColumnFilter={(key, value) => setColumnFilters((prev) => ({ ...prev, [key]: value }))}
+              onColumnFilter={(key, value) =>
+                setColumnFilters((prev) => ({ ...prev, [key]: value }))
+              }
               onClearColumnFilter={clearColumnFilter}
               showColumnFilter={showColumnFilter}
               setShowColumnFilter={setShowColumnFilter}
               onClearAllFilters={clearAllFilters}
               tableConfig={PENGELUARAN_CONFIG.tableConfig}
+              pageSize={25}
             />
 
           </div>

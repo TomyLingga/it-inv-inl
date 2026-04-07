@@ -7,9 +7,9 @@ export const PENGELUARAN_COLUMNS: ColumnConfig<PengeluaranData>[] = [
   { key: 'postingDate', label: 'Posting Date', filterable: true, sortable: true, width: '22' },
   { key: 'jenisDokBC', label: 'Jenis Dok BC', filterable: true, sortable: true },
   { key: 'nomorDokAju', label: 'Nomor Dok Aju', filterable: true, sortable: true },
-  { key: 'tglDokAju', label: 'Tgl Dok Aju', filterable: false, sortable: true },
+  { key: 'tglDokAju', label: 'Tgl Dok Aju', filterable: true, sortable: true },        // ← filterable
   { key: 'nomorDokPendaftaran', label: 'Nomor Dok Pendftr', filterable: true, sortable: true },
-  { key: 'tglDokPendaftaran', label: 'Tgl Dok Pendftr', filterable: false, sortable: true },
+  { key: 'tglDokPendaftaran', label: 'Tgl Dok Pendftr', filterable: true, sortable: true },  // ← filterable
   { key: 'nomorPo', label: 'Nomor PO', filterable: true, sortable: true },
   {
     key: 'penerima',
@@ -46,7 +46,7 @@ export const PENGELUARAN_CONFIG: PageConfig<PengeluaranData> = {
     showDateFilter: true,
     showPlantFilter: true,
     showExportButton: true,
-    dateLabel: 'Filter Tanggal Dokumen Pendaftaran',
+    dateLabel: 'Filter Posting Date',   // ← diupdate
   },
   exportConfig: {
     filename: 'Pengeluaran_Barang',

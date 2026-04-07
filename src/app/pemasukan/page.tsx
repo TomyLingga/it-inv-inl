@@ -28,25 +28,31 @@ import { PEMASUKAN_CONFIG } from './config'
 
 // ─── SAP response → PemasukanData mapper ─────────────────────────────────────
 function mapSapToPemasukan(raw: any[]): PemasukanData[] {
-  return raw.map((item, idx) => ({
-    no: idx + 1,
-    postingDate: item.BUDAT ?? '',
-    jenisDokBC: item.JENISDOK ?? '',
-    nomorDokAju: item.NOAJU ?? '',
-    tglDokAju: item.TGLAJU ?? '',
-    nomorDokPendaftaran: item.NOPENDT ?? '',
-    tglDokPendaftaran: item.TGLPEND ?? '',
-    nomorPo: item.EBELN ?? '',
-    pengirim: item.VENDOR ?? '',
-    kodeBarang: item.KODEBRG ?? '',
-    kodeHS: item.CODEHS ?? '',
-    namaBarang: item.NAMABRG ?? '',
-    satuan: item.SATUAN ?? '',
-    jumlah: Number(item.JUMLAH) || 0,
-    nilaiBarang: Number(item.NILAIBRG) || 0,
-  }))
-}
+  return raw.map((item, idx) => {
+    // Hapus titik dan ganti koma dengan titik, lalu konversi ke float
+    const nilaiBarang = parseFloat(
+      item.NILAIBRG.replace(/\./g, '').replace(',', '.')
+    );
 
+    return {
+      no: idx + 1,
+      postingDate: item.BUDAT ?? '',
+      jenisDokBC: item.JENISDOK ?? '',
+      nomorDokAju: item.NOAJU ?? '',
+      tglDokAju: item.TGLAJU ?? '',
+      nomorDokPendaftaran: item.NOPENDT ?? '',
+      tglDokPendaftaran: item.TGLPEND ?? '',
+      nomorPo: item.EBELN ?? '',
+      pengirim: item.VENDOR ?? '',
+      kodeBarang: item.KODEBRG ?? '',
+      kodeHS: item.CODEHS ?? '',
+      namaBarang: item.NAMABRG ?? '',
+      satuan: item.SATUAN ?? '',
+      jumlah: Number(item.JUMLAH) || 0,
+      nilaiBarang, // Sekarang sebagai number
+    };
+  });
+}
 // ─── Format date for SAP: YYYYMMDD ───────────────────────────────────────────
 function toSapDate(isoDate: string): string {
   return isoDate.replace(/-/g, '')
@@ -87,8 +93,13 @@ export default function PemasukanPage() {
     setIsFetching(true)
     setFetchError(null)
 
+    // Filter menggunakan Posting Date (BUDAT) — bukan Tgl Dok Pendaftaran
     const requestBody = {
-      I_TGLDOKPEND: [
+      I_TGLDOKPEND: [],
+      I_JENISDOK: [],
+      I_NAMABRG: '',
+      I_PLANT: selectedPlant || '',
+      I_PSTINGDATE: [
         {
           SIGN: 'I',
           OPTION: 'BT',
@@ -96,15 +107,6 @@ export default function PemasukanPage() {
           HIGH: toSapDate(dateRange.end),
         },
       ],
-      ' I_JENISDOK': [
-        {
-          SIGN: '',
-          OPTION: '',
-          LOW: '',
-        },
-      ],
-      I_NAMABRG: '',
-      I_PLANT: selectedPlant || '',
     }
 
     try {
@@ -118,7 +120,6 @@ export default function PemasukanPage() {
         body: JSON.stringify(requestBody),
       })
 
-      // Token expired / unauthorized → logout
       if (res.status === 403 || res.status === 401) {
         logout()
         router.replace('/')
@@ -157,14 +158,13 @@ export default function PemasukanPage() {
     }
   }, [isAuthenticated, loading, router])
 
-  // Fetch ulang saat filter tanggal / plant berubah
   useEffect(() => {
     if (isAuthenticated && !loading && csrfToken) {
       fetchData()
     }
   }, [isAuthenticated, loading, csrfToken, dateRange, selectedPlant])
 
-  // ─── Client-side filter + sort (search & column filter) ──────────────────
+  // ─── Client-side filter + sort — gunakan postingDate sebagai date filter field
   useEffect(() => {
     const filtered = applyFilters(
       data,
@@ -172,7 +172,7 @@ export default function PemasukanPage() {
       selectedPlant,
       dateRange,
       columnFilters,
-      'tglDokPendaftaran'
+      'postingDate'   // ← filter lokal juga pakai postingDate
     )
     const sortFn = createSortFunction(sortConfig)
     const sorted = [...filtered].sort(sortFn)
@@ -190,11 +190,7 @@ export default function PemasukanPage() {
 
   const handleExport = () => {
     if (exportFormat === 'excel') {
-      exportToExcel(
-        filteredData,
-        PEMASUKAN_CONFIG.columns,
-        PEMASUKAN_CONFIG.exportConfig.filename
-      )
+      exportToExcel(filteredData, PEMASUKAN_CONFIG.columns, PEMASUKAN_CONFIG.exportConfig.filename)
     } else {
       exportToPDF(
         filteredData,
