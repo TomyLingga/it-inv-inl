@@ -115,7 +115,7 @@ export interface StokData extends BaseData {
   lokasiId: string
   satuan: string
   jumlah: number
-  nilaiBarang: number
+  // nilaiBarang: number
   // plant?: string
 }
 

@@ -38,7 +38,7 @@ function mapSapToStok(raw: any[]): StokData[] {
     lokasiId:   item.LOCATION ?? '',
     satuan:       item.SATUAN        ?? '',
     jumlah:       Number(item.JUMLAH)      || 0,
-    nilaiBarang:  Number(item.NILAI_BARANG) || 0,
+    // nilaiBarang:  Number(item.NILAI_BARANG) || 0,
   }))
 }
 

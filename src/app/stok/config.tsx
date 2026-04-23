@@ -30,7 +30,7 @@ export const STOK_COLUMNS: ColumnConfig<StokData>[] = [
   { key: 'lokasiId',    label: 'Lokasi ID',     filterable: true,  sortable: true,  width: '12' },
   { key: 'satuan',      label: 'Satuan',        filterable: true,  sortable: true,  width: '12' },
   { key: 'jumlah',      label: 'Jumlah',        filterable: false, sortable: true,  width: '15' },
-  { key: 'nilaiBarang', label: 'Nilai Barang',   filterable: false, sortable: true,  width: '28' },
+  // { key: 'nilaiBarang', label: 'Nilai Barang',   filterable: false, sortable: true,  width: '28' },
 ]
 
 export const STOK_CONFIG: PageConfig<StokData> = {

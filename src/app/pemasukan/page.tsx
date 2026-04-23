@@ -29,10 +29,11 @@ import { PEMASUKAN_CONFIG } from './config'
 // ─── SAP response → PemasukanData mapper ─────────────────────────────────────
 function mapSapToPemasukan(raw: any[]): PemasukanData[] {
   return raw.map((item, idx) => {
-    // Hapus titik dan ganti koma dengan titik, lalu konversi ke float
-    const nilaiBarang = parseFloat(
-      item.NILAIBRG.replace(/\./g, '').replace(',', '.')
-    );
+    const rawNilai = String(item.NILAIBRG || '0');
+    const rawJumlah = String(item.JUMLAH || '0');
+
+    const nilaiBarang = parseFloat(rawNilai.replace(/\./g, '').replace(/,/g, '.')) || 0;
+    const jumlahBarang = parseFloat(rawJumlah.replace(/\./g, '').replace(/,/g, '.')) || 0;
 
     return {
       no: idx + 1,
@@ -48,8 +49,8 @@ function mapSapToPemasukan(raw: any[]): PemasukanData[] {
       kodeHS: item.CODEHS ?? '',
       namaBarang: item.NAMABRG ?? '',
       satuan: item.SATUAN ?? '',
-      jumlah: Number(item.JUMLAH) || 0,
-      nilaiBarang, // Sekarang sebagai number
+      jumlah: jumlahBarang,
+      nilaiBarang: nilaiBarang,
     };
   });
 }
