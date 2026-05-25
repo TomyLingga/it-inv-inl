@@ -4,7 +4,8 @@ import { PemasukanData, ColumnConfig, PageConfig } from '@/app/shared/types'
 
 export const PEMASUKAN_COLUMNS: ColumnConfig<PemasukanData>[] = [
   { key: 'no', label: 'No', filterable: false, sortable: false, width: '10' },
-  { key: 'postingDate', label: 'Posting Date', filterable: true, sortable: true, width: '22' },
+  { key: 'postingDate', label: 'Tanggal Masuk', filterable: true, sortable: true, width: '22' },
+  { key: 'nomorDokMaterial', label: 'Nomor Dok Material', filterable: true, sortable: true, width: '24' },
   { key: 'jenisDokBC', label: 'Jenis Dok BC', filterable: true, sortable: true },
   { key: 'nomorDokAju', label: 'Nomor Dok Aju', filterable: true, sortable: true },
   { key: 'tglDokAju', label: 'Tgl Dok Aju', filterable: true, sortable: true },        // ← filterable
@@ -46,7 +47,7 @@ export const PEMASUKAN_CONFIG: PageConfig<PemasukanData> = {
     showDateFilter: true,
     showPlantFilter: true,
     showExportButton: true,
-    dateLabel: 'Filter Posting Date',   // ← diupdate
+    dateLabel: 'Filter Tanggal Masuk',
   },
   exportConfig: {
     filename: 'Pemasukan_Barang',

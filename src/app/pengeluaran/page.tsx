@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/components/useAuth'
 import Sidebar from '@/app/components/Sidebar'
+import { fetchWithTokenRefresh } from '@/lib/fetchWithTokenRefresh'
 
 // Shared Components
 import FilterSection from '@/app/shared/components/FilterSection'
@@ -39,6 +40,7 @@ function mapSapToPengeluaran(raw: any[]): PengeluaranData[] {
     return {
       no: idx + 1,
       postingDate: item.BUDAT ?? '',
+      nomorDokMaterial: item.MBLNR ?? '',   // ← dokumen material SAP
       jenisDokBC: item.JENISDOK ?? '',
       nomorDokAju: item.NOAJU ?? '',
       tglDokAju: item.TGLAJU ?? '',
@@ -62,7 +64,7 @@ function toSapDate(isoDate: string): string {
 }
 
 export default function PengeluaranPage() {
-  const { isAuthenticated, loading, csrfToken, logout } = useAuth()
+  const { isAuthenticated, loading, csrfToken, logout, refreshToken } = useAuth()
   const router = useRouter()
   const [isClient, setIsClient] = useState(false)
 
@@ -113,34 +115,20 @@ export default function PengeluaranPage() {
     }
 
     try {
-      const res = await fetch('/api/pengeluaran', {
+      const { data: rawData, error, didLogout } = await fetchWithTokenRefresh<any[]>({
+        url: '/api/pengeluaran',
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
-        },
-        body: JSON.stringify(requestBody),
+        body: requestBody,
+        csrfToken: csrfToken!,
+        refreshToken,
+        logout,
+        onLogout: () => router.replace('/'),
       })
 
-      if (res.status === 403 || res.status === 401) {
-        logout()
-        router.replace('/')
-        return
-      }
+      if (didLogout) return
+      if (error) { setFetchError(error); return }
 
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}))
-        setFetchError(errJson.message || `Error ${res.status}`)
-        setIsFetching(false)
-        return
-      }
-
-      const json = await res.json()
-      const rawArray: any[] = Array.isArray(json)
-        ? json
-        : json.data ?? json.results ?? []
-
+      const rawArray: any[] = Array.isArray(rawData) ? rawData : []
       const mapped = mapSapToPengeluaran(rawArray)
       setData(mapped)
     } catch (err: any) {
@@ -148,7 +136,7 @@ export default function PengeluaranPage() {
     } finally {
       setIsFetching(false)
     }
-  }, [csrfToken, dateRange, selectedPlant, logout, router])
+  }, [csrfToken, dateRange, selectedPlant, logout, refreshToken, router])
 
   // ─── Init ─────────────────────────────────────────────────────────────────
   useEffect(() => {

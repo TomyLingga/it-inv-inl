@@ -5,9 +5,10 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/components/useAuth'
 import Sidebar from '@/app/components/Sidebar'
+import { Calendar } from 'lucide-react'
+import { fetchWithTokenRefresh } from '@/lib/fetchWithTokenRefresh'
 
 // Shared Components
-import FilterSection from '@/app/shared/components/FilterSection'
 import ActiveFilters from '@/app/shared/components/ActiveFilters'
 import ExportModal from '@/app/shared/components/ExportModal'
 import DataTable from '@/app/shared/components/DataTable'
@@ -17,9 +18,7 @@ import { StokData, SortConfig, ExportFormat } from '@/app/shared/types'
 import { PLANT_OPTIONS } from '@/app/shared/utils/constants'
 import { exportToExcel, exportToPDF } from '@/app/shared/utils/exportUtils'
 import {
-  getDefaultDateRange,
   createSortFunction,
-  applyFilters,
   resequenceData,
 } from '@/app/shared/utils/filterUtils'
 
@@ -29,16 +28,20 @@ import { STOK_CONFIG } from './config'
 // ─── SAP response → StokData mapper ──────────────────────────────────────────
 function mapSapToStok(raw: any[]): StokData[] {
   return raw.map((item, idx) => ({
-    no: idx + 1,
-    postingDate:  item.POSTING_DATE  ?? '',
-    kodeBarang:   item.KODE_BARANG   ?? '',
-    kodeHS:       item.CODEHS        ?? '',
-    namaBarang:   item.NAMA_BARANG   ?? '',
-    lokasi:       item.NAMA_LOCATION  ?? '',
-    lokasiId:   item.LOCATION ?? '',
-    satuan:       item.SATUAN        ?? '',
-    jumlah:       Number(item.JUMLAH)      || 0,
-    // nilaiBarang:  Number(item.NILAI_BARANG) || 0,
+    no:           idx + 1,
+    postingDate:  item.START_DATE  ?? '',   // pakai START_DATE sebagai postingDate
+    startDate:    item.START_DATE  ?? '',
+    endDate:      item.END_DATE    ?? '',
+    batch:        item.CHARG       ?? '',
+    kodeBarang:   item.MATNR       ?? '',
+    kodeHS:       item.HSCODE      ?? '',
+    namaBarang:   item.MAKTX       ?? '',
+    lokasi:       item.LGOBE       ?? '',
+    lokasiId:     item.LGORT       ?? '',
+    satuan:       item.MEINS       ?? '',
+    jumlah:       Number(item.END_STOCK_QTY)   || 0,
+    nilaiBarang:  Number(item.END_STOCK_VALUE)  || 0,
+    currency:     item.WAERS       ?? '',
   }))
 }
 
@@ -47,8 +50,13 @@ function toSapDate(isoDate: string): string {
   return isoDate.replace(/-/g, '')
 }
 
+// ─── Get today's date as ISO string ──────────────────────────────────────────
+function getTodayIso(): string {
+  return new Date().toISOString().split('T')[0]
+}
+
 export default function StokPage() {
-  const { isAuthenticated, loading, csrfToken, logout } = useAuth()
+  const { isAuthenticated, loading, csrfToken, logout, refreshToken } = useAuth()
   const router = useRouter()
   const [isClient, setIsClient] = useState(false)
 
@@ -58,9 +66,9 @@ export default function StokPage() {
   const [isFetching, setIsFetching] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
-  // Filter states
+  // Filter states — stok hanya 1 tanggal, bukan range
   const [searchTerm, setSearchTerm] = useState('')
-  const [dateRange, setDateRange] = useState(getDefaultDateRange())
+  const [selectedDate, setSelectedDate] = useState(getTodayIso())
   const [selectedPlant, setSelectedPlant] = useState('IN01')
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({})
   const [showColumnFilter, setShowColumnFilter] = useState<string | null>(null)
@@ -82,48 +90,36 @@ export default function StokPage() {
     setIsFetching(true)
     setFetchError(null)
 
+    // API stock-inl: filter 1 tanggal saja dengan OPTION EQ
     const requestBody = {
       I_PLANT: selectedPlant || '',
-      I_POSTING_DATE: [
+      I_START_DATE: [
         {
           SIGN:   'I',
-          OPTION: 'BT',
-          LOW:    toSapDate(dateRange.start),
-          HIGH:   toSapDate(dateRange.end),
+          OPTION: 'EQ',
+          LOW:    toSapDate(selectedDate),
+          HIGH:   '',
         },
       ],
+      I_END_DATE: [],
+      S_BATCH:    [],
     }
 
     try {
-      const res = await fetch('/api/stok', {
+      const { data: rawData, error, didLogout } = await fetchWithTokenRefresh<any[]>({
+        url: '/api/stok',
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
-        },
-        body: JSON.stringify(requestBody),
+        body: requestBody,
+        csrfToken: csrfToken!,
+        refreshToken,
+        logout,
+        onLogout: () => router.replace('/'),
       })
 
-      // Token expired / unauthorized → logout
-      if (res.status === 403 || res.status === 401) {
-        logout()
-        router.replace('/')
-        return
-      }
+      if (didLogout) return
+      if (error) { setFetchError(error); return }
 
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}))
-        setFetchError(errJson.message || `Error ${res.status}`)
-        setIsFetching(false)
-        return
-      }
-
-      const json = await res.json()
-      const rawArray: any[] = Array.isArray(json)
-        ? json
-        : json.data ?? json.results ?? []
-
+      const rawArray: any[] = Array.isArray(rawData) ? rawData : []
       const mapped = mapSapToStok(rawArray)
       setData(mapped)
     } catch (err: any) {
@@ -131,7 +127,7 @@ export default function StokPage() {
     } finally {
       setIsFetching(false)
     }
-  }, [csrfToken, dateRange, selectedPlant, logout, router])
+  }, [csrfToken, selectedDate, selectedPlant, logout, refreshToken, router])
 
   // ─── Init ─────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -149,19 +145,30 @@ export default function StokPage() {
     if (isAuthenticated && !loading && csrfToken) {
       fetchData()
     }
-  }, [isAuthenticated, loading, csrfToken, dateRange, selectedPlant])
+  }, [isAuthenticated, loading, csrfToken, selectedDate, selectedPlant])
 
   // ─── Client-side filter + sort ────────────────────────────────────────────
   useEffect(() => {
-    // Stok pakai postingDate untuk filter tanggal (bukan tglDokPendaftaran)
-    const filtered = applyFilters(
-      data,
-      searchTerm,
-      selectedPlant,
-      dateRange,
-      columnFilters,
-      'postingDate'
-    )
+    // Filter teks & kolom saja (date filter sudah dilakukan sisi server)
+    let filtered = [...data]
+
+    // Global search
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase()
+      filtered = filtered.filter((row) =>
+        Object.values(row).some((v) => String(v).toLowerCase().includes(term))
+      )
+    }
+
+    // Column filters
+    Object.entries(columnFilters).forEach(([key, val]) => {
+      if (val) {
+        filtered = filtered.filter((row) =>
+          String((row as any)[key]).toLowerCase().includes(val.toLowerCase())
+        )
+      }
+    })
+
     const sortFn = createSortFunction(sortConfig)
     const sorted = [...filtered].sort(sortFn)
     const resequenced = resequenceData(sorted)
@@ -267,37 +274,93 @@ export default function StokPage() {
               </div>
             )}
 
-            {/* Filters */}
-            <FilterSection
-              config={STOK_CONFIG.filterConfig}
-              selectedPlant={selectedPlant}
-              onPlantChange={setSelectedPlant}
-              plantOptions={PLANT_OPTIONS}
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              dateRange={dateRange}
-              onDateChange={(field, value) =>
-                setDateRange((prev) => ({ ...prev, [field]: value }))
-              }
-              onExportClick={() => setShowExportModal(true)}
-              dataCount={filteredData.length}
-            />
-
-            {/* Active Filters */}
+            {/* Filters — Stok pakai single date */}
             <div className='bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 lg:mb-6 border border-gray-200'>
-              <ActiveFilters
-                selectedPlant={selectedPlant}
-                onClearPlant={() => setSelectedPlant('')}
-                searchTerm={searchTerm}
-                onClearSearch={() => setSearchTerm('')}
-                dateRange={dateRange}
-                onClearDateRange={() => setDateRange(getDefaultDateRange())}
-                columnFilters={columnFilters}
-                onClearColumnFilter={clearColumnFilter}
-                onClearAll={clearAllFilters}
-                columns={STOK_CONFIG.columns}
-                plantOptions={PLANT_OPTIONS}
-              />
+              <div className='grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4'>
+                {/* Plant */}
+                <div className='lg:col-span-3'>
+                  <label className='block text-xs font-medium text-gray-700 mb-1.5'>Plant</label>
+                  <select
+                    value={selectedPlant}
+                    onChange={(e) => setSelectedPlant(e.target.value)}
+                    className='w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all'
+                  >
+                    {PLANT_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Search */}
+                <div className='lg:col-span-4'>
+                  <label className='block text-xs font-medium text-gray-700 mb-1.5'>Pencarian Global</label>
+                  <div className='relative'>
+                    <svg className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' /></svg>
+                    <input
+                      type='text'
+                      placeholder='Cari kode barang, nama barang...'
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className='w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all'
+                    />
+                  </div>
+                </div>
+
+                {/* Single Date */}
+                <div className='lg:col-span-3'>
+                  <label className='block text-xs font-medium text-gray-700 mb-1.5'>
+                    <Calendar className='inline w-3.5 h-3.5 mr-1' />
+                    Tanggal Stok
+                  </label>
+                  <input
+                    type='date'
+                    value={selectedDate}
+                    max={getTodayIso()}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className='w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                  />
+                </div>
+
+                {/* Export */}
+                <div className='lg:col-span-2 flex items-end'>
+                  <button
+                    onClick={() => setShowExportModal(true)}
+                    disabled={filteredData.length === 0}
+                    className='w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all font-medium flex items-center justify-center space-x-1.5 text-sm'
+                  >
+                    <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4' /></svg>
+                    <span>Export</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Filters — tampilkan tanggal yang aktif */}
+            <div className='bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 lg:mb-6 border border-gray-200'>
+              <div className='flex flex-wrap gap-2 items-center'>
+                {selectedPlant && (
+                  <span className='inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium'>
+                    Plant: {selectedPlant}
+                    <button onClick={() => setSelectedPlant('IN01')} className='ml-1 text-blue-400 hover:text-blue-600'>×</button>
+                  </span>
+                )}
+                <span className='inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-full text-xs font-medium'>
+                  📅 Tanggal: {selectedDate}
+                  <button onClick={() => setSelectedDate(getTodayIso())} className='ml-1 text-purple-400 hover:text-purple-600'>×</button>
+                </span>
+                {searchTerm && (
+                  <span className='inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium'>
+                    Cari: "{searchTerm}"
+                    <button onClick={() => setSearchTerm('')} className='ml-1 text-gray-400 hover:text-gray-600'>×</button>
+                  </span>
+                )}
+                {Object.entries(columnFilters).map(([key, val]) => (
+                  <span key={key} className='inline-flex items-center gap-1 px-2.5 py-1 bg-yellow-50 text-yellow-700 rounded-full text-xs font-medium'>
+                    {key}: "{val}"
+                    <button onClick={() => clearColumnFilter(key)} className='ml-1 text-yellow-400 hover:text-yellow-600'>×</button>
+                  </span>
+                ))}
+              </div>
             </div>
 
             {/* Export Modal */}

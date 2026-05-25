@@ -72,6 +72,7 @@ export interface TableConfig<T = any> {
 
 // PEMASUKAN
 export interface PemasukanData extends BaseData {
+  nomorDokMaterial: string   // MBLNR
   jenisDokBC: string
   nomorDokAju: string
   tglDokAju: string
@@ -90,6 +91,7 @@ export interface PemasukanData extends BaseData {
 
 // PENGELUARAN
 export interface PengeluaranData extends BaseData {
+  nomorDokMaterial: string   // MBLNR
   jenisDokBC: string
   nomorDokAju: string
   tglDokAju: string
@@ -108,15 +110,18 @@ export interface PengeluaranData extends BaseData {
 
 // STOK
 export interface StokData extends BaseData {
-  kodeBarang: string
-  kodeHS: string
-  namaBarang: string
-  lokasi: string
-  lokasiId: string
-  satuan: string
-  jumlah: number
-  // nilaiBarang: number
-  // plant?: string
+  startDate: string      // START_DATE
+  endDate: string        // END_DATE
+  batch: string          // CHARG
+  kodeBarang: string     // MATNR
+  kodeHS: string         // HSCODE
+  namaBarang: string     // MAKTX
+  lokasi: string         // LGOBE
+  lokasiId: string       // LGORT
+  satuan: string         // MEINS
+  jumlah: number         // END_STOCK_QTY
+  nilaiBarang: number    // END_STOCK_VALUE
+  currency: string       // WAERS
 }
 
 

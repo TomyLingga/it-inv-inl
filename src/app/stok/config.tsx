@@ -3,10 +3,11 @@
 import { StokData, ColumnConfig, PageConfig } from '@/app/shared/types'
 
 export const STOK_COLUMNS: ColumnConfig<StokData>[] = [
-  { key: 'no',          label: 'No',           filterable: false, sortable: false, width: '10' },
-  { key: 'postingDate', label: 'Posting Date',  filterable: false, sortable: true,  width: '22' },
-  { key: 'kodeBarang',  label: 'Kode Barang',   filterable: true,  sortable: true },
-  { key: 'kodeHS',      label: 'Kode HS',       filterable: true,  sortable: true },
+  { key: 'no',          label: 'No',             filterable: false, sortable: false, width: '10' },
+  { key: 'startDate',   label: 'Tgl Stok',        filterable: false, sortable: true,  width: '22' },
+  { key: 'kodeBarang',  label: 'Kode Barang',      filterable: true,  sortable: true },
+  { key: 'batch',       label: 'Batch',            filterable: true,  sortable: true,  width: '18' },
+  { key: 'kodeHS',      label: 'Kode HS',          filterable: true,  sortable: true },
   {
     key: 'namaBarang',
     label: 'Nama Barang',
@@ -27,23 +28,24 @@ export const STOK_COLUMNS: ColumnConfig<StokData>[] = [
       </span>
     ),
   },
-  { key: 'lokasiId',    label: 'Lokasi ID',     filterable: true,  sortable: true,  width: '12' },
-  { key: 'satuan',      label: 'Satuan',        filterable: true,  sortable: true,  width: '12' },
-  { key: 'jumlah',      label: 'Jumlah',        filterable: false, sortable: true,  width: '15' },
-  // { key: 'nilaiBarang', label: 'Nilai Barang',   filterable: false, sortable: true,  width: '28' },
+  { key: 'lokasiId',    label: 'Lokasi ID',        filterable: true,  sortable: true,  width: '12' },
+  { key: 'satuan',      label: 'Satuan',           filterable: true,  sortable: true,  width: '12' },
+  { key: 'jumlah',      label: 'Qty Stok',         filterable: false, sortable: true,  width: '15' },
+  { key: 'nilaiBarang', label: 'Nilai Stok',       filterable: false, sortable: true,  width: '25' },
+  { key: 'currency',    label: 'Mata Uang',        filterable: true,  sortable: true,  width: '14' },
 ]
 
 export const STOK_CONFIG: PageConfig<StokData> = {
   title: 'Stok Barang',
   icon: '📊',
-  description: 'Monitor stok barang di gudang',
+  description: 'Monitor stok barang di gudang per tanggal',
   columns: STOK_COLUMNS,
   filterConfig: {
     showGlobalSearch: true,
-    showDateFilter: true,
+    showDateFilter: false,   // ← Digantikan oleh single date picker di page
     showPlantFilter: true,
     showExportButton: true,
-    dateLabel: 'Filter Tanggal Posting Date',
+    dateLabel: 'Tanggal Stok',
   },
   exportConfig: {
     filename: 'Stok_Barang',
@@ -54,9 +56,9 @@ export const STOK_CONFIG: PageConfig<StokData> = {
     showFooter: true,
     footerCalculations: [
       {
-        column: 'jumlah',       // ← tambahan
+        column: 'jumlah',
         type: 'sum',
-        label: 'Total Jumlah',
+        label: 'Total Qty',
       },
       {
         column: 'nilaiBarang',

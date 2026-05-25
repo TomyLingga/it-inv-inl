@@ -21,10 +21,11 @@ export default function Sidebar() {
     { href: '/stok', label: 'Stok', icon: Package, color: 'text-blue-600' },
   ]
 
-  // **FIX: Reset sidebar to OPEN on every page load**
+  // Di mobile: mulai dengan sidebar tertutup
   useEffect(() => {
-    setIsOpen(true)
-  }, [pathname])
+    const isMobile = window.innerWidth < 1024
+    setIsOpen(!isMobile)
+  }, [])
 
   const toggleSidebar = () => setIsOpen(!isOpen)
   
@@ -117,6 +118,10 @@ export default function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => {
+                  // Tutup sidebar otomatis setelah navigasi di mobile
+                  if (window.innerWidth < 1024) setIsOpen(false)
+                }}
                 className={`
                   flex items-center px-4 py-4 rounded-2xl transition-all duration-300 group hover:shadow-xl w-full
                   overflow-hidden bg-gray-800/80 backdrop-blur-sm hover:bg-gray-700/80 border border-gray-700
@@ -194,8 +199,8 @@ export default function Sidebar() {
         </>
       )}
 
-      {/* Mobile Overlay */}
-      {!isOpen && (
+      {/* Mobile Overlay — tampil saat sidebar TERBUKA di mobile, klik untuk tutup */}
+      {isOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-30 lg:hidden"
           onClick={toggleSidebar}
