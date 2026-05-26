@@ -145,7 +145,7 @@ export default function StokPage() {
     if (isAuthenticated && !loading && csrfToken) {
       fetchData()
     }
-  }, [isAuthenticated, loading, csrfToken, selectedDate, selectedPlant])
+  }, [isAuthenticated, loading, csrfToken, selectedDate, selectedPlant, fetchData])
 
   // ─── Client-side filter + sort ────────────────────────────────────────────
   useEffect(() => {
@@ -350,13 +350,13 @@ export default function StokPage() {
                 </span>
                 {searchTerm && (
                   <span className='inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium'>
-                    Cari: "{searchTerm}"
+                    Cari: {'"'}{searchTerm}{'"'}
                     <button onClick={() => setSearchTerm('')} className='ml-1 text-gray-400 hover:text-gray-600'>×</button>
                   </span>
                 )}
                 {Object.entries(columnFilters).map(([key, val]) => (
                   <span key={key} className='inline-flex items-center gap-1 px-2.5 py-1 bg-yellow-50 text-yellow-700 rounded-full text-xs font-medium'>
-                    {key}: "{val}"
+                    {key}: {'"'}{val}{'"'}
                     <button onClick={() => clearColumnFilter(key)} className='ml-1 text-yellow-400 hover:text-yellow-600'>×</button>
                   </span>
                 ))}

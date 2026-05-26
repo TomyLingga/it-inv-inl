@@ -153,7 +153,7 @@ export default function PengeluaranPage() {
     if (isAuthenticated && !loading && csrfToken) {
       fetchData()
     }
-  }, [isAuthenticated, loading, csrfToken, dateRange, selectedPlant])
+  }, [isAuthenticated, loading, csrfToken, dateRange, selectedPlant, fetchData])
 
   // ─── Client-side filter + sort — gunakan postingDate sebagai date filter field
   useEffect(() => {
@@ -169,7 +169,7 @@ export default function PengeluaranPage() {
     const sorted = [...filtered].sort(sortFn)
     const resequenced = resequenceData(sorted)
     setFilteredData(resequenced)
-  }, [data, searchTerm, columnFilters, sortConfig])
+  }, [data, searchTerm, columnFilters, sortConfig, dateRange, selectedPlant])
 
   // ─── Handlers ────────────────────────────────────────────────────────────
   const handleSort = (key: keyof PengeluaranData) => {
