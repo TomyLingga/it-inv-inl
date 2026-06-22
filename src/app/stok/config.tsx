@@ -4,7 +4,6 @@ import { StokData, ColumnConfig, PageConfig } from '@/app/shared/types'
 
 export const STOK_COLUMNS: ColumnConfig<StokData>[] = [
   { key: 'no',          label: 'No',             filterable: false, sortable: false, width: '10' },
-  { key: 'startDate',   label: 'Tgl Stok',        filterable: false, sortable: true,  width: '22' },
   { key: 'kodeBarang',  label: 'Kode Barang',      filterable: true,  sortable: true },
   { key: 'batch',       label: 'Batch',            filterable: true,  sortable: true,  width: '18' },
   { key: 'kodeHS',      label: 'Kode HS',          filterable: true,  sortable: true },

@@ -26,22 +26,22 @@ import {
 import { STOK_CONFIG } from './config'
 
 // ─── SAP response → StokData mapper ──────────────────────────────────────────
-function mapSapToStok(raw: any[]): StokData[] {
+function mapSapToStok(raw: any[], selectedDate: string): StokData[] {
   return raw.map((item, idx) => ({
-    no:           idx + 1,
-    postingDate:  item.START_DATE  ?? '',   // pakai START_DATE sebagai postingDate
-    startDate:    item.START_DATE  ?? '',
-    endDate:      item.END_DATE    ?? '',
-    batch:        item.CHARG       ?? '',
-    kodeBarang:   item.MATNR       ?? '',
-    kodeHS:       item.HSCODE      ?? '',
-    namaBarang:   item.MAKTX       ?? '',
-    lokasi:       item.LGOBE       ?? '',
-    lokasiId:     item.LGORT       ?? '',
-    satuan:       item.MEINS       ?? '',
-    jumlah:       Number(item.END_STOCK_QTY)   || 0,
-    nilaiBarang:  Number(item.END_STOCK_VALUE)  || 0,
-    currency:     item.WAERS       ?? '',
+    no: idx + 1,
+    postingDate: selectedDate,   // pakai selectedDate sebagai postingDate
+    startDate: selectedDate,
+    endDate: selectedDate,
+    batch: item.CHARG ?? '',
+    kodeBarang: item.MATNR ?? '',
+    kodeHS: item.HSCODE ?? '',
+    namaBarang: item.MAKTX ?? '',
+    lokasi: item.LGOBE ?? '',
+    lokasiId: item.LGORT ?? '',
+    satuan: item.MEINS ?? '',
+    jumlah: Number(item.END_STOCK_QTY) || 0,
+    nilaiBarang: (Number(item.END_STOCK_VALUE) || 0) * 100,
+    currency: item.WAERS ?? '',
   }))
 }
 
@@ -90,19 +90,32 @@ export default function StokPage() {
     setIsFetching(true)
     setFetchError(null)
 
-    // API stock-inl: filter 1 tanggal saja dengan OPTION EQ
+    // API stock-inl: filter company code, plant, and posting date
     const requestBody = {
-      I_PLANT: selectedPlant || '',
-      I_START_DATE: [
+      I_COMPANY_CODE: [
         {
-          SIGN:   'I',
+          SIGN: 'I',
           OPTION: 'EQ',
-          LOW:    toSapDate(selectedDate),
-          HIGH:   '',
+          LOW: 'INL0',
+          HIGH: '',
         },
       ],
-      I_END_DATE: [],
-      S_BATCH:    [],
+      I_PLANT: [
+        {
+          SIGN: 'I',
+          OPTION: 'EQ',
+          LOW: selectedPlant || '',
+          HIGH: '',
+        },
+      ],
+      I_POSTING_DATE: [
+        {
+          SIGN: 'I',
+          OPTION: 'EQ',
+          LOW: toSapDate(selectedDate),
+          HIGH: '',
+        },
+      ],
     }
 
     try {
@@ -120,7 +133,7 @@ export default function StokPage() {
       if (error) { setFetchError(error); return }
 
       const rawArray: any[] = Array.isArray(rawData) ? rawData : []
-      const mapped = mapSapToStok(rawArray)
+      const mapped = mapSapToStok(rawArray, selectedDate)
       setData(mapped)
     } catch (err: any) {
       setFetchError(err.message || 'Gagal mengambil data')
@@ -276,9 +289,9 @@ export default function StokPage() {
 
             {/* Filters — Stok pakai single date */}
             <div className='bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 lg:mb-6 border border-gray-200'>
-              <div className='grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4'>
+              <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4'>
                 {/* Plant */}
-                <div className='lg:col-span-3'>
+                <div className='md:col-span-1 lg:col-span-3'>
                   <label className='block text-xs font-medium text-gray-700 mb-1.5'>Plant</label>
                   <select
                     value={selectedPlant}
@@ -292,7 +305,7 @@ export default function StokPage() {
                 </div>
 
                 {/* Search */}
-                <div className='lg:col-span-4'>
+                <div className='md:col-span-1 lg:col-span-4'>
                   <label className='block text-xs font-medium text-gray-700 mb-1.5'>Pencarian Global</label>
                   <div className='relative'>
                     <svg className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' /></svg>
@@ -307,7 +320,7 @@ export default function StokPage() {
                 </div>
 
                 {/* Single Date */}
-                <div className='lg:col-span-3'>
+                <div className='md:col-span-1 lg:col-span-3'>
                   <label className='block text-xs font-medium text-gray-700 mb-1.5'>
                     <Calendar className='inline w-3.5 h-3.5 mr-1' />
                     Tanggal Stok
@@ -322,7 +335,7 @@ export default function StokPage() {
                 </div>
 
                 {/* Export */}
-                <div className='lg:col-span-2 flex items-end'>
+                <div className='md:col-span-1 lg:col-span-2 flex items-end'>
                   <button
                     onClick={() => setShowExportModal(true)}
                     disabled={filteredData.length === 0}

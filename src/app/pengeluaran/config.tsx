@@ -12,6 +12,7 @@ export const PENGELUARAN_COLUMNS: ColumnConfig<PengeluaranData>[] = [
   { key: 'nomorDokPendaftaran', label: 'Nomor Dok Pendftr', filterable: true, sortable: true },
   { key: 'tglDokPendaftaran', label: 'Tgl Dok Pendftr', filterable: true, sortable: true },  // ← filterable
   { key: 'nomorPo', label: 'Nomor PO', filterable: true, sortable: true },
+  { key: 'nomorSO', label: 'Nomor SO', filterable: true, sortable: true },
   {
     key: 'penerima',
     label: 'Penerima',

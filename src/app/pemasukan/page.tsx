@@ -30,11 +30,9 @@ import { PEMASUKAN_CONFIG } from './config'
 // ─── SAP response → PemasukanData mapper ─────────────────────────────────────
 function mapSapToPemasukan(raw: any[]): PemasukanData[] {
   return raw.map((item, idx) => {
-    const rawNilai = String(item.NILAIBRG || '0');
-    const rawJumlah = String(item.JUMLAH || '0');
-
-    const nilaiBarang = parseFloat(rawNilai.replace(/\./g, '').replace(/,/g, '.')) || 0;
-    const jumlahBarang = parseFloat(rawJumlah.replace(/\./g, '').replace(/,/g, '.')) || 0;
+    // API mengembalikan angka numerik biasa, gunakan Number() langsung
+    const nilaiBarang = Number(item.NILAIBRG) || 0;
+    const jumlahBarang = Number(item.JUMLAH) || 0;
 
     return {
       no: idx + 1,
@@ -52,7 +50,7 @@ function mapSapToPemasukan(raw: any[]): PemasukanData[] {
       namaBarang: item.NAMABRG ?? '',
       satuan: item.SATUAN ?? '',
       jumlah: jumlahBarang,
-      nilaiBarang: nilaiBarang,
+      nilaiBarang: nilaiBarang * 100,
     };
   });
 }

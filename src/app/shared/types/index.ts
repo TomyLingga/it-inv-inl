@@ -98,6 +98,7 @@ export interface PengeluaranData extends BaseData {
   nomorDokPendaftaran: string
   tglDokPendaftaran: string
   nomorPo: string
+  nomorSO: string       // VBELN
   penerima: string  // ← Berbeda dari Pemasukan (pengirim → penerima)
   kodeBarang: string
   kodeHS: string

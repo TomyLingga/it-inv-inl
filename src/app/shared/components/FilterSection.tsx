@@ -86,10 +86,10 @@ export default function FilterSection({
 
   return (
     <div className='bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 lg:mb-6 border border-gray-200'>
-      <div className={`grid grid-cols-1 ${gridCols} gap-3 sm:gap-4`}>
+      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4`}>
         {/* Plant Filter */}
         {finalShowPlant && plantOptions.length > 0 && (
-          <div className='lg:col-span-3'>
+          <div className='md:col-span-1 lg:col-span-3'>
             <label className='block text-xs font-medium text-gray-700 mb-1.5'>Plant</label>
             <select
               value={selectedPlant}
@@ -107,7 +107,7 @@ export default function FilterSection({
 
         {/* Global Search */}
         {finalShowSearch && (
-          <div className='lg:col-span-4'>
+          <div className='md:col-span-1 lg:col-span-3'>
             <label className='block text-xs font-medium text-gray-700 mb-1.5'>Pencarian Global</label>
             <div className='relative'>
               <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5' />
@@ -124,27 +124,27 @@ export default function FilterSection({
 
         {/* Date Filter */}
         {finalShowDate && dateRange && (
-          <div className='lg:col-span-3'>
+          <div className='md:col-span-2 lg:col-span-4'>
             <label className='block text-xs font-medium text-gray-700 mb-1.5'>
               {finalDateLabel}
             </label>
-            <div className='flex space-x-1 sm:space-x-2'>
+            <div className='flex flex-col sm:flex-row gap-1.5 sm:gap-2'>
               <input
                 type='date'
                 value={dateRange.start}
                 onChange={(e) => handleDateChange('start', e.target.value)}
                 max={dateRange.end || new Date().toISOString().split('T')[0]}
-                className='flex-1 px-2 sm:px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                className='flex-1 min-w-0 px-2 sm:px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
               />
-              <div className='flex items-center px-1 sm:px-2'>
-                <Calendar className='w-4 h-4 sm:w-5 sm:h-5 text-gray-400' />
+              <div className='hidden sm:flex items-center px-1'>
+                <Calendar className='w-4 h-4 text-gray-400' />
               </div>
               <input
                 type='date'
                 value={dateRange.end}
                 onChange={(e) => handleDateChange('end', e.target.value)}
                 max={new Date().toISOString().split('T')[0]}
-                className='flex-1 px-2 sm:px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                className='flex-1 min-w-0 px-2 sm:px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
               />
             </div>
           </div>
@@ -152,14 +152,14 @@ export default function FilterSection({
 
         {/* Custom Filters */}
         {customFilters && (
-          <div className='lg:col-span-3'>
+          <div className='md:col-span-1 lg:col-span-3'>
             {customFilters}
           </div>
         )}
 
         {/* Export Button */}
         {finalShowExport && (
-          <div className='lg:col-span-2 flex items-end'>
+          <div className='md:col-span-2 lg:col-span-2 flex items-end'>
             <button 
               onClick={onExportClick}
               disabled={dataCount === 0}

@@ -30,11 +30,9 @@ import { PENGELUARAN_CONFIG } from './config'
 // ─── SAP response → PengeluaranData mapper ────────────────────────────────────
 function mapSapToPengeluaran(raw: any[]): PengeluaranData[] {
   return raw.map((item, idx) => {
-    const rawNilai = String(item.NILAIBRG || '0');
-    const rawJumlah = String(item.JUMLAH || '0');
-
-    const nilaiBarang = parseFloat(rawNilai.replace(/\./g, '').replace(/,/g, '.')) || 0;
-    const jumlahBarang = parseFloat(rawJumlah.replace(/\./g, '').replace(/,/g, '.')) || 0;
+    // API mengembalikan angka numerik biasa, gunakan Number() langsung
+    const nilaiBarang = Number(item.NILAIBRG) || 0;
+    const jumlahBarang = Number(item.JUMLAH) || 0;
 
 
     return {
@@ -47,13 +45,14 @@ function mapSapToPengeluaran(raw: any[]): PengeluaranData[] {
       nomorDokPendaftaran: item.NOPENDT ?? '',
       tglDokPendaftaran: item.TGLPEND ?? '',
       nomorPo: item.EBELN ?? '',
+      nomorSO: item.VBELN ?? '',
       penerima: item.VENDOR ?? '',
       kodeBarang: item.KODEBRG ?? '',
       kodeHS: item.CODEHS ?? '',
       namaBarang: item.NAMABRG ?? '',
       satuan: item.SATUAN ?? '',
       jumlah: jumlahBarang,
-      nilaiBarang: nilaiBarang,
+      nilaiBarang: nilaiBarang * 100,
     };
   });
 }
