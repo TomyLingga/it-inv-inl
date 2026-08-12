@@ -22,6 +22,7 @@ import {
   createSortFunction,
   applyFilters,
   resequenceData,
+  normalizeCode,
 } from '@/app/shared/utils/filterUtils'
 
 // Module-specific Config
@@ -77,6 +78,7 @@ export default function PengeluaranPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [dateRange, setDateRange] = useState(getDefaultDateRange())
   const [selectedPlant, setSelectedPlant] = useState('IN01')
+  const [selectedKppbc, setSelectedKppbc] = useState('KPPBC Pematangsiantar')
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({})
   const [showColumnFilter, setShowColumnFilter] = useState<string | null>(null)
 
@@ -129,13 +131,58 @@ export default function PengeluaranPage() {
 
       const rawArray: any[] = Array.isArray(rawData) ? rawData : []
       const mapped = mapSapToPengeluaran(rawArray)
-      setData(mapped)
+
+      // Fetch status fasilitas material & KPPBC PO
+      try {
+        const [resFac, resKppbc] = await Promise.all([
+          fetch('/api/material-facility').then((r) => r.json()),
+          fetch('/api/po-kppbc').then((r) => r.json()),
+        ])
+
+        const rawFacMap = resFac?.data || {}
+        const rawKppbcMap = resKppbc?.data || {}
+
+        // Buat map ter-normalisasi
+        const facilityMap: Record<string, any> = {}
+        Object.entries(rawFacMap).forEach(([k, v]) => {
+          facilityMap[k] = v
+          facilityMap[normalizeCode(k)] = v
+        })
+
+        const kppbcMap: Record<string, any> = {}
+        Object.entries(rawKppbcMap).forEach(([k, v]) => {
+          kppbcMap[k] = v
+          kppbcMap[normalizeCode(k)] = v
+        })
+
+        // Filter 1: HANYA tampilkan material berstatus Fasilitas (is_facility === true)
+        let filteredList = mapped.filter((item) => {
+          const normMatnr = normalizeCode(item.kodeBarang)
+          const setting = facilityMap[normMatnr] || facilityMap[item.kodeBarang]
+          return setting && Boolean(setting.is_facility) === true
+        })
+
+        // Filter 2: Filter berdasarkan Kantor KPPBC PO (KPPBC Pematangsiantar vs KPPBC Kuala Tanjung)
+        filteredList = filteredList.filter((item) => {
+          const normPo = normalizeCode(item.nomorPo)
+          const poSetting = kppbcMap[normPo] || kppbcMap[item.nomorPo]
+          const itemKppbc = poSetting ? poSetting.kppbc : 'Belum Ditentukan'
+          return itemKppbc === selectedKppbc
+        })
+
+        setData(filteredList)
+        return
+      } catch (fErr) {
+        console.warn('Gagal memuat filter fasilitas/KPPBC:', fErr)
+      }
+
+      setData([])
     } catch (err: any) {
       setFetchError(err.message || 'Gagal mengambil data')
     } finally {
       setIsFetching(false)
     }
-  }, [csrfToken, dateRange, selectedPlant, logout, refreshToken, router])
+  }, [csrfToken, dateRange, selectedPlant, selectedKppbc, logout, refreshToken, router])
 
   // ─── Init ─────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -281,8 +328,26 @@ export default function PengeluaranPage() {
               onDateChange={(field, value) =>
                 setDateRange((prev) => ({ ...prev, [field]: value }))
               }
-              onExportClick={() => setShowExportModal(true)}
+              onExportClick={() => {
+                setExportFormat('excel')
+                setShowExportModal(true)
+              }}
               dataCount={filteredData.length}
+              customFilters={
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                    🏢 KPPBC:
+                  </label>
+                  <select
+                    value={selectedKppbc}
+                    onChange={(e) => setSelectedKppbc(e.target.value)}
+                    className="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 font-medium cursor-pointer"
+                  >
+                    <option value="KPPBC Pematangsiantar">KPPBC Pematangsiantar</option>
+                    <option value="KPPBC Kuala Tanjung">KPPBC Kuala Tanjung</option>
+                  </select>
+                </div>
+              }
             />
 
             {/* Active Filters */}

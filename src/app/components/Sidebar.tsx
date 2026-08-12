@@ -5,7 +5,22 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/app/components/useAuth'
 import { useState, useEffect } from 'react'
-import { Menu, X, Gauge, Download, Upload, Package, LogOut, AlertCircle, CheckCircle } from 'lucide-react'
+import {
+  Menu,
+  X,
+  Gauge,
+  Download,
+  Upload,
+  Package,
+  LogOut,
+  AlertCircle,
+  CheckCircle,
+  Settings,
+  ChevronDown,
+  ChevronRight,
+  Boxes,
+  FileText,
+} from 'lucide-react'
 
 export default function Sidebar() {
   const pathname = usePathname()
@@ -13,6 +28,14 @@ export default function Sidebar() {
   const { userName, logout, loading } = useAuth()
   const [isOpen, setIsOpen] = useState(true)
   const [showLogoutDialog, setShowLogoutDialog] = useState(false)
+  const [isSettingOpen, setIsSettingOpen] = useState(false)
+
+  // Auto-expand setting menu if current path is under /setting
+  useEffect(() => {
+    if (pathname.startsWith('/setting')) {
+      setIsSettingOpen(true)
+    }
+  }, [pathname])
 
   const menuItems = [
     { href: '/dashboard', label: 'Utama', icon: Gauge, color: 'text-blue-600' },
@@ -144,7 +167,81 @@ export default function Sidebar() {
               </Link>
             )
           })}
+
+          {/* Expandable Setting Menu */}
+          <div className="space-y-1">
+            <button
+              onClick={() => {
+                if (!isOpen) setIsOpen(true)
+                setIsSettingOpen(!isSettingOpen)
+              }}
+              className={`
+                flex items-center justify-between px-4 py-4 rounded-2xl transition-all duration-300 group hover:shadow-xl w-full
+                overflow-hidden bg-gray-800/80 backdrop-blur-sm hover:bg-gray-700/80 border border-gray-700
+                ${pathname.startsWith('/setting')
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-2xl scale-105 border-purple-500'
+                  : 'text-gray-300 hover:text-white'
+                }
+              `}
+            >
+              <div className="flex items-center">
+                <Settings className={`
+                  w-7 h-7 mr-4 flex-shrink-0 group-hover:rotate-45 transition-all duration-300
+                  ${pathname.startsWith('/setting') ? 'text-white' : 'text-purple-400'}
+                `} />
+                <span className={`
+                  font-semibold text-base transition-all duration-300 whitespace-nowrap overflow-hidden text-ellipsis
+                  ${isOpen ? 'opacity-100 w-32 lg:w-auto' : 'opacity-0 w-0 lg:opacity-0 lg:w-0'}
+                `}>
+                  Setting
+                </span>
+              </div>
+              {isOpen && (
+                isSettingOpen ? (
+                  <ChevronDown className="w-5 h-5 text-gray-400 transition-transform duration-200" />
+                ) : (
+                  <ChevronRight className="w-5 h-5 text-gray-400 transition-transform duration-200" />
+                )
+              )}
+            </button>
+
+            {/* Submenu links */}
+            {isSettingOpen && (
+              <div className="pl-4 pr-1 space-y-1 pt-1 transition-all duration-300">
+                <Link
+                  href="/setting/material-list"
+                  onClick={() => { if (window.innerWidth < 1024) setIsOpen(false) }}
+                  className={`
+                    flex items-center px-4 py-3 rounded-xl transition-all duration-200 group text-sm font-medium border border-transparent
+                    ${pathname === '/setting/material-list'
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg border-blue-400/30'
+                      : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
+                    }
+                  `}
+                >
+                  <Boxes className="w-5 h-5 mr-3 text-blue-400 group-hover:scale-110 transition-transform flex-shrink-0" />
+                  <span className={`${isOpen ? 'inline' : 'hidden lg:inline'}`}>Material List</span>
+                </Link>
+
+                <Link
+                  href="/setting/po-list"
+                  onClick={() => { if (window.innerWidth < 1024) setIsOpen(false) }}
+                  className={`
+                    flex items-center px-4 py-3 rounded-xl transition-all duration-200 group text-sm font-medium border border-transparent
+                    ${pathname === '/setting/po-list'
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg border-blue-400/30'
+                      : 'text-gray-300 hover:text-white hover:bg-gray-700/60'
+                    }
+                  `}
+                >
+                  <FileText className="w-5 h-5 mr-3 text-emerald-400 group-hover:scale-110 transition-transform flex-shrink-0" />
+                  <span className={`${isOpen ? 'inline' : 'hidden lg:inline'}`}>PO List</span>
+                </Link>
+              </div>
+            )}
+          </div>
         </nav>
+
 
         {/* Logout Button */}
         <div className="px-1 py-4 space-y-2 border-t border-gray-600 mt-auto">

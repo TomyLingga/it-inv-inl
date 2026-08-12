@@ -20,6 +20,7 @@ import { exportToExcel, exportToPDF } from '@/app/shared/utils/exportUtils'
 import {
   createSortFunction,
   resequenceData,
+  normalizeCode,
 } from '@/app/shared/utils/filterUtils'
 
 // Module-specific Config
@@ -134,7 +135,33 @@ export default function StokPage() {
 
       const rawArray: any[] = Array.isArray(rawData) ? rawData : []
       const mapped = mapSapToStok(rawArray, selectedDate)
-      setData(mapped)
+
+      // Fetch status fasilitas material
+      try {
+        const resFac = await fetch('/api/material-facility')
+        const jsonFac = await resFac.json()
+        if (jsonFac?.success && jsonFac?.data) {
+          const rawFacMap = jsonFac.data
+          const facilityMap: Record<string, any> = {}
+          Object.entries(rawFacMap).forEach(([k, v]) => {
+            facilityMap[k] = v
+            facilityMap[normalizeCode(k)] = v
+          })
+
+          // Filter: HANYA tampilkan material berstatus Fasilitas (is_facility === true)
+          const facilityOnly = mapped.filter((item) => {
+            const normMatnr = normalizeCode(item.kodeBarang)
+            const setting = facilityMap[normMatnr] || facilityMap[item.kodeBarang]
+            return setting && Boolean(setting.is_facility) === true
+          })
+          setData(facilityOnly)
+          return
+        }
+      } catch (fErr) {
+        console.warn('Gagal memuat status fasilitas material:', fErr)
+      }
+
+      setData([])
     } catch (err: any) {
       setFetchError(err.message || 'Gagal mengambil data')
     } finally {

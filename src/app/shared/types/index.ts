@@ -125,12 +125,41 @@ export interface StokData extends BaseData {
   currency: string       // WAERS
 }
 
+// MATERIAL LIST
+export interface MaterialListData extends BaseData {
+  matnr: string          // MATNR - Nomor Material
+  maktx: string          // MAKTX - Deskripsi Material
+  werks: string          // WERKS - Kode Plant
+  bwtar: string          // BWTAR - Valuation Type
+  meins: string          // MEINS - Base Unit of Measure
+  mtart: string          // MTART - Material Type
+  mtbez: string          // MTBEZ - Deskripsi Material Type
+  matkl: string          // MATKL - Material Group
+  wgbez: string          // WGBEZ - Deskripsi Material Group
+  isFacility: boolean    // true = Fasilitas Kepabeanan, false = Non-Fasilitas
+  facilityType: 'fasilitas' | 'non_fasilitas'
+}
+
+// PO LIST (DISPLAY BEA CUKAI)
+export interface PoListData extends BaseData {
+  mandt: string          // MANDT - Client (e.g. 800)
+  ebeln: string          // EBELN - Nomor PO
+  jenisDok: string       // ZJENISDOK - Jenis Dokumen BC (e.g. BC 4.1)
+  noAju: string          // ZNOAJU - Nomor Pengajuan
+  tglAju: string         // ZTGL_AJU - Tanggal Pengajuan
+  noPend: string         // ZNOPENDT - Nomor Pendaftaran
+  tglPend: string        // ZTGL_PENDT - Tanggal Pendaftaran
+  kppbc: 'KPPBC Pematangsiantar' | 'KPPBC Kuala Tanjung' | string
+}
+
+
+
 
 // ============================================================================
 // UTILITY TYPES
 // ============================================================================
 
-export type DataType = PemasukanData | PengeluaranData | StokData
+export type DataType = PemasukanData | PengeluaranData | StokData | MaterialListData | PoListData
 
 export interface PageConfig<T = any> {
   title: string
@@ -141,3 +170,4 @@ export interface PageConfig<T = any> {
   exportConfig: ExportConfig
   tableConfig?: TableConfig<T>
 }
+

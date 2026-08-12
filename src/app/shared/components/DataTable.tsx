@@ -25,6 +25,8 @@ interface DataTableProps<T extends BaseData> {
   tableConfig?: TableConfig<T>
 
   pageSize?: number
+
+  isLoading?: boolean
 }
 
 export default function DataTable<T extends BaseData>({
@@ -40,6 +42,7 @@ export default function DataTable<T extends BaseData>({
   onClearAllFilters,
   tableConfig,
   pageSize = 25,
+  isLoading = false,
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(pageSize)
@@ -73,22 +76,57 @@ export default function DataTable<T extends BaseData>({
     return value.toLocaleString('id-ID')
   }
 
+  // ─── Loading / Skeleton state (Cegah kedip/layout shift saat memuat data) ──
+  if (isLoading && data.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gradient-to-r from-gray-50 to-blue-50 border-b-2 border-gray-200">
+              <tr>
+                {columns.map((col) => (
+                  <th
+                    key={col.key as string}
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200 last:border-r-0 whitespace-nowrap"
+                  >
+                    {col.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 bg-white">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <tr key={i} className="animate-pulse">
+                  {columns.map((col, j) => (
+                    <td key={j} className="px-4 py-3.5 border-r border-gray-100 last:border-r-0">
+                      <div className="h-4 bg-gray-200 rounded-md w-3/4"></div>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
   // ─── Empty state ──────────────────────────────────────────────────────────
   if (data.length === 0) {
     return (
-      <div className='bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
-        <div className='text-center py-12 sm:py-16 bg-gray-50'>
-          <div className='text-4xl sm:text-6xl mb-4'>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="text-center py-12 sm:py-16 bg-gray-50">
+          <div className="text-4xl sm:text-6xl mb-4">
             {tableConfig?.emptyStateIcon || '🔍'}
           </div>
-          <h3 className='text-lg sm:text-xl font-semibold text-gray-900 mb-2'>
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
             {tableConfig?.emptyStateMessage || 'Tidak ada data ditemukan'}
           </h3>
-          <p className='text-gray-500 mb-6 text-sm'>Coba ubah filter atau kata kunci pencarian Anda</p>
+          <p className="text-gray-500 mb-6 text-sm">Coba ubah filter atau kata kunci pencarian Anda</p>
           {onClearAllFilters && (
             <button
               onClick={onClearAllFilters}
-              className='px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm'
+              className="px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm"
             >
               Reset Semua Filter
             </button>
@@ -97,6 +135,7 @@ export default function DataTable<T extends BaseData>({
       </div>
     )
   }
+
 
   const goToPage = (page: number) => {
     setCurrentPage(Math.min(Math.max(1, page), totalPages))

@@ -24,9 +24,26 @@ export interface SapFetchResult<T> {
   didLogout: boolean
 }
 
+function getAuthHeader(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const savedUser = localStorage.getItem('sap_username')
+    const savedPassEnc = localStorage.getItem('sap_password_enc')
+    if (savedUser && savedPassEnc) {
+      const savedPass = atob(savedPassEnc)
+      return `Basic ${btoa(`${savedUser}:${savedPass}`)}`
+    }
+  } catch {
+    // Ignore error
+  }
+  return null
+}
+
 export async function fetchWithTokenRefresh<T = any>(
   opts: SapFetchOptions
 ): Promise<SapFetchResult<T>> {
+  const authHeader = getAuthHeader()
+
   const doFetch = async (token: string): Promise<Response> => {
     return fetch(opts.url, {
       method: opts.method ?? 'POST',
@@ -34,6 +51,7 @@ export async function fetchWithTokenRefresh<T = any>(
       headers: {
         'Content-Type': 'application/json',
         'x-csrf-token': token,
+        ...(authHeader ? { 'Authorization': authHeader } : {}),
       },
       ...(opts.body ? { body: JSON.stringify(opts.body) } : {}),
     })
@@ -51,12 +69,10 @@ export async function fetchWithTokenRefresh<T = any>(
       res = await doFetch(newToken)
     }
 
-    // Jika masih 403/401 setelah refresh → logout
+    // Jika masih 403/401 setelah refresh → jangan loop, kembalikan error
     if (res.status === 403 || res.status === 401) {
-      console.error('❌ Still unauthorized after refresh, logging out')
-      opts.logout(true)
-      opts.onLogout?.()
-      return { data: null, error: 'Session berakhir. Silakan login kembali.', didLogout: true }
+      console.error('❌ Still unauthorized after refresh attempt')
+      return { data: null, error: 'Akses SAP ditolak (Status 403). Silakan periksa kredensial.', didLogout: false }
     }
   }
 

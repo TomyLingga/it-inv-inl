@@ -2,8 +2,46 @@
 
 import { BaseData, SortConfig, DateRange } from '../types'
 
+export const parseSapDate = (val: string | null | undefined): Date | null => {
+  if (!val) return null
+  const str = String(val).trim()
+  if (!str) return null
+
+  // Format YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const d = new Date(str)
+    return isNaN(d.getTime()) ? null : d
+  }
+
+  // Format YYYYMMDD
+  if (/^\d{8}$/.test(str)) {
+    const y = parseInt(str.substring(0, 4), 10)
+    const m = parseInt(str.substring(4, 6), 10) - 1
+    const d = parseInt(str.substring(6, 8), 10)
+    return new Date(y, m, d)
+  }
+
+  // Format DD.MM.YYYY
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(str)) {
+    const parts = str.split('.')
+    const d = parseInt(parts[0], 10)
+    const m = parseInt(parts[1], 10) - 1
+    const y = parseInt(parts[2], 10)
+    return new Date(y, m, d)
+  }
+
+  const parsed = new Date(str)
+  return isNaN(parsed.getTime()) ? null : parsed
+}
+
+export const normalizeCode = (code: string | null | undefined): string => {
+  if (!code) return ''
+  return String(code).trim().replace(/^0+/, '')
+}
+
 export const formatDate = (dateString: string): string => {
-  const date = new Date(dateString)
+  const date = parseSapDate(dateString)
+  if (!date) return dateString || '-'
   const day = date.getDate().toString().padStart(2, '0')
   const month = (date.getMonth() + 1).toString().padStart(2, '0')
   const year = date.getFullYear()
@@ -26,8 +64,8 @@ export const createSortFunction = <T extends BaseData>(sortConfig: SortConfig<T>
     
     // Date sorting
     if (sortConfig.key === 'postingDate' || sortConfig.key.toString().includes('tgl')) {
-      const dateA = new Date(a[sortConfig.key] as string).getTime()
-      const dateB = new Date(b[sortConfig.key] as string).getTime()
+      const dateA = parseSapDate(a[sortConfig.key] as string)?.getTime() ?? 0
+      const dateB = parseSapDate(b[sortConfig.key] as string)?.getTime() ?? 0
       return sortConfig.direction === 'asc' ? dateA - dateB : dateB - dateA
     }
     
@@ -65,17 +103,19 @@ export const applyFilters = <T extends BaseData>(
     )
   }
   
-  // Plant filter (if exists in data)
-  // if (selectedPlant && filtered.length > 0 && 'plant' in filtered[0]) {
-  //   filtered = filtered.filter(row => (row as any).plant === selectedPlant)
-  // }
-  
   // Date range filter — menggunakan field yang dikonfigurasi
   if (dateRange.start && dateRange.end) {
-    filtered = filtered.filter(row => {
-      const dateValue = new Date(row[dateFilterField] as string)
-      return dateValue >= new Date(dateRange.start) && dateValue <= new Date(dateRange.end)
-    })
+    const startDate = parseSapDate(dateRange.start)
+    const endDate = parseSapDate(dateRange.end)
+    if (startDate && endDate) {
+      endDate.setHours(23, 59, 59, 999)
+      filtered = filtered.filter(row => {
+        const rawDate = row[dateFilterField] as string
+        const dateValue = parseSapDate(rawDate)
+        if (!dateValue) return true
+        return dateValue >= startDate && dateValue <= endDate
+      })
+    }
   }
   
   // Column filters
