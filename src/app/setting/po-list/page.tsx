@@ -19,6 +19,7 @@ import LoadingOverlay from '@/app/components/ui/LoadingOverlay'
 import { PoListData, SortConfig, ExportFormat, ColumnConfig } from '@/app/shared/types'
 import { exportToExcel, exportToPDF } from '@/app/shared/utils/exportUtils'
 import { createSortFunction, resequenceData } from '@/app/shared/utils/filterUtils'
+import { toast } from '@/app/components/ui/AppToast'
 
 function mapSapToPo(
   raw: any[],
@@ -175,11 +176,13 @@ export default function PoListPage() {
       })
       const json = await res.json()
       if (!json.success) {
-        alert('Gagal memperbarui kantor KPPBC di database.')
+        toast.error('Gagal memperbarui kantor KPPBC di database.')
         fetchData()
+      } else {
+        toast.success('Berhasil memperbarui kantor KPPBC.')
       }
     } catch (err) {
-      alert('Gagal menghubungkan ke backend API.')
+      toast.error('Gagal menghubungkan ke backend API.')
       fetchData()
     } finally {
       setSavingEbeln(null)
@@ -430,7 +433,7 @@ export default function PoListPage() {
             {/* Data Table */}
             <div className="relative">
               {isFetching && data.length > 0 && (
-                <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-xs z-10 flex items-center justify-center rounded-2xl">
+                <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm z-10 flex items-center justify-center rounded-2xl">
                   <div className="flex items-center space-x-3 bg-white dark:bg-slate-900 px-6 py-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xl">
                     <RefreshCw className="w-6 h-6 text-emerald-600 dark:text-emerald-400 animate-spin" />
                     <span className="text-slate-800 dark:text-slate-200 font-semibold">Memuat data Display Bea Cukai & DB...</span>

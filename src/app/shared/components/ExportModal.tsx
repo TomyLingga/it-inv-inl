@@ -1,6 +1,9 @@
 // src/app/shared/components/ExportModal.tsx
 
 'use client'
+
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { FileText, FileSpreadsheet } from 'lucide-react'
 import { ExportFormat } from '../types'
 
@@ -21,11 +24,23 @@ export default function ExportModal({
   onFormatChange,
   onExport,
 }: ExportModalProps) {
-  if (!isOpen) return null
+  const [mounted, setMounted] = useState(false)
 
-  return (
-    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!isOpen || !mounted) return null
+
+  return createPortal(
+    <div
+      className="fixed inset-0 w-screen h-screen h-[100dvh] bg-slate-950/60 backdrop-blur-md flex items-center justify-center z-[9999] p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="p-6 border-b border-slate-200 dark:border-slate-800">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Export Data</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -123,6 +138,7 @@ export default function ExportModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/components/useAuth'
 import Sidebar, { Topbar } from '@/app/components/Sidebar'
-import { Calendar, Package, AlertCircle, Loader2, Download, Search, X, RotateCcw } from 'lucide-react'
+import { Calendar, Package, AlertCircle, Loader2, Download, Search, X, RotateCcw, Factory } from 'lucide-react'
 import { fetchWithTokenRefresh } from '@/lib/fetchWithTokenRefresh'
 
 // Shared Components
@@ -321,8 +321,9 @@ export default function StokPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4 items-end">
                 {/* Plant */}
                 <div className="sm:col-span-1 lg:col-span-6">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Plant
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <Factory className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>Plant</span>
                   </label>
                   <select
                     value={selectedPlant}

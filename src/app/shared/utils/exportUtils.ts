@@ -4,6 +4,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import { BaseData, ColumnConfig } from '../types'
+import { toast } from '@/app/components/ui/AppToast'
 
 export const exportToExcel = <T extends BaseData>(
   data: T[],
@@ -11,7 +12,7 @@ export const exportToExcel = <T extends BaseData>(
   filename: string
 ) => {
   if (data.length === 0) {
-    alert('Tidak ada data untuk diexport!')
+    toast.error('Tidak ada data untuk diexport!')
     return
   }
 
@@ -47,7 +48,7 @@ export const exportToPDF = <T extends BaseData>(
   title: string
 ) => {
   if (data.length === 0) {
-    alert('Tidak ada data untuk diexport!')
+    toast.error('Tidak ada data untuk diexport!')
     return
   }
 

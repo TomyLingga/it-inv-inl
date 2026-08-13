@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/components/useAuth'
 import Sidebar, { Topbar } from '@/app/components/Sidebar'
 import { fetchWithTokenRefresh } from '@/lib/fetchWithTokenRefresh'
-import { Search, RefreshCw, Boxes, Download, Filter, CheckCircle2, XCircle } from 'lucide-react'
+import { Search, RefreshCw, Boxes, Download, Filter, CheckCircle2, XCircle, Factory } from 'lucide-react'
 
 // Shared Components
 import ActiveFilters from '@/app/shared/components/ActiveFilters'
@@ -20,6 +20,7 @@ import { MaterialListData, SortConfig, ExportFormat, ColumnConfig } from '@/app/
 import { PLANT_OPTIONS } from '@/app/shared/utils/constants'
 import { exportToExcel, exportToPDF } from '@/app/shared/utils/exportUtils'
 import { createSortFunction, resequenceData } from '@/app/shared/utils/filterUtils'
+import { toast } from '@/app/components/ui/AppToast'
 
 function mapSapToMaterial(
   raw: any[],
@@ -197,11 +198,13 @@ export default function MaterialListPage() {
       })
       const json = await res.json()
       if (!json.success) {
-        alert('Gagal memperbarui status fasilitas kepabeanan di database.')
+        toast.error('Gagal memperbarui status fasilitas kepabeanan di database.')
         fetchData()
+      } else {
+        toast.success('Berhasil memperbarui status fasilitas kepabeanan.')
       }
     } catch (err) {
-      alert('Gagal menghubungkan ke backend API.')
+      toast.error('Gagal menghubungkan ke backend API.')
       fetchData()
     } finally {
       setSavingMatnr(null)
@@ -468,8 +471,9 @@ export default function MaterialListPage() {
 
                   {/* Plant Filter */}
                   <div className="flex items-center space-x-2">
-                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                      Plant:
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center space-x-1.5 whitespace-nowrap">
+                      <Factory className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span>Plant:</span>
                     </label>
                     <select
                       value={selectedPlant}
@@ -515,7 +519,7 @@ export default function MaterialListPage() {
             {/* Data Table */}
             <div className="relative">
               {isFetching && data.length > 0 && (
-                <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-xs z-10 flex items-center justify-center rounded-2xl">
+                <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm z-10 flex items-center justify-center rounded-2xl">
                   <div className="flex items-center space-x-3 bg-white dark:bg-slate-900 px-6 py-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xl">
                     <RefreshCw className="w-6 h-6 text-blue-600 dark:text-blue-400 animate-spin" />
                     <span className="text-slate-800 dark:text-slate-200 font-semibold">Memuat data dari SAP & Database...</span>
