@@ -146,11 +146,11 @@ export default function LoginPage() {
           </form>
         </CardContent>
 
-        <CardFooter className="flex flex-col items-center justify-center border-t border-slate-100 dark:border-slate-800/80 py-4 mt-2">
+        <CardFooter className="flex flex-col items-center justify-center border-t border-slate-100 dark:border-slate-800/80 py-4 -mt-3">
           <p className="text-pretty text-center text-slate-500 dark:text-slate-400 text-xs font-medium">
             IT Inventory System &copy; 2026
           </p>
-          <p className="text-pretty text-center text-slate-500 dark:text-slate-400 text-xs font-medium -mt-2">
+          <p className="text-pretty text-center text-slate-500 dark:text-slate-400 text-xs font-medium ">
             SAP Integration
           </p>
         </CardFooter>
