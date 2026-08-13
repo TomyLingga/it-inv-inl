@@ -8,9 +8,9 @@ export const PENGELUARAN_COLUMNS: ColumnConfig<PengeluaranData>[] = [
   { key: 'nomorDokMaterial', label: 'Nomor Dok Material', filterable: true, sortable: true, width: '24' },
   { key: 'jenisDokBC', label: 'Jenis Dok BC', filterable: true, sortable: true },
   { key: 'nomorDokAju', label: 'Nomor Dok Aju', filterable: true, sortable: true },
-  { key: 'tglDokAju', label: 'Tgl Dok Aju', filterable: true, sortable: true },        // ← filterable
+  { key: 'tglDokAju', label: 'Tgl Dok Aju', filterable: true, sortable: true },
   { key: 'nomorDokPendaftaran', label: 'Nomor Dok Pendftr', filterable: true, sortable: true },
-  { key: 'tglDokPendaftaran', label: 'Tgl Dok Pendftr', filterable: true, sortable: true },  // ← filterable
+  { key: 'tglDokPendaftaran', label: 'Tgl Dok Pendftr', filterable: true, sortable: true },
   { key: 'nomorPo', label: 'Nomor PO', filterable: true, sortable: true },
   { key: 'nomorSO', label: 'Nomor SO', filterable: true, sortable: true },
   {
@@ -19,8 +19,8 @@ export const PENGELUARAN_COLUMNS: ColumnConfig<PengeluaranData>[] = [
     filterable: true,
     sortable: true,
     render: (value) => (
-      <span className='text-gray-900 max-w-xs truncate block'>{value}</span>
-    )
+      <span className="text-slate-900 dark:text-slate-100 font-medium max-w-xs truncate block">{value}</span>
+    ),
   },
   { key: 'kodeBarang', label: 'Kode Barang', filterable: true, sortable: true },
   { key: 'kodeHS', label: 'Kode HS', filterable: true, sortable: true },
@@ -30,8 +30,8 @@ export const PENGELUARAN_COLUMNS: ColumnConfig<PengeluaranData>[] = [
     filterable: true,
     sortable: true,
     render: (value) => (
-      <span className='text-gray-900 max-w-[200px] sm:max-w-md truncate block'>{value}</span>
-    )
+      <span className="text-slate-900 dark:text-slate-100 font-medium max-w-[200px] sm:max-w-md truncate block">{value}</span>
+    ),
   },
   { key: 'satuan', label: 'Satuan', filterable: true, sortable: true, width: '12' },
   { key: 'jumlah', label: 'Jumlah', filterable: false, sortable: true, width: '15' },
@@ -40,7 +40,7 @@ export const PENGELUARAN_COLUMNS: ColumnConfig<PengeluaranData>[] = [
 
 export const PENGELUARAN_CONFIG: PageConfig<PengeluaranData> = {
   title: 'Pengeluaran Barang',
-  icon: '📉',
+  icon: 'ArrowUpFromLine',
   description: 'Kelola data barang keluar dari gudang',
   columns: PENGELUARAN_COLUMNS,
   filterConfig: {
@@ -59,7 +59,7 @@ export const PENGELUARAN_CONFIG: PageConfig<PengeluaranData> = {
     showFooter: true,
     footerCalculations: [
       {
-        column: 'jumlah',       // ← tambahan
+        column: 'jumlah',
         type: 'sum',
         label: 'Total Jumlah',
       },
@@ -70,6 +70,5 @@ export const PENGELUARAN_CONFIG: PageConfig<PengeluaranData> = {
       },
     ],
     emptyStateMessage: 'Tidak ada data pengeluaran ditemukan',
-    emptyStateIcon: '📦',
   },
 }

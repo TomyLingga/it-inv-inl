@@ -4,14 +4,16 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/components/useAuth'
-import Sidebar from '@/app/components/Sidebar'
-import { fetchWithTokenRefresh } from '@/lib/fetchWithTokenRefresh'
+import Sidebar, { Topbar } from '@/app/components/Sidebar'
+import { ArrowDownToLine, AlertCircle, Loader2, Building2 } from 'lucide-react'
 
 // Shared Components
 import FilterSection from '@/app/shared/components/FilterSection'
 import ActiveFilters from '@/app/shared/components/ActiveFilters'
 import ExportModal from '@/app/shared/components/ExportModal'
 import DataTable from '@/app/shared/components/DataTable'
+import { Spinner } from '@/app/components/ui/spinner'
+import LoadingOverlay from '@/app/components/ui/LoadingOverlay'
 
 // Shared Utils & Types
 import { PemasukanData, SortConfig, ExportFormat } from '@/app/shared/types'
@@ -27,6 +29,7 @@ import {
 
 // Module-specific Config
 import { PEMASUKAN_CONFIG } from './config'
+import { fetchWithTokenRefresh } from '@/lib/fetchWithTokenRefresh'
 
 // ─── SAP response → PemasukanData mapper ─────────────────────────────────────
 function mapSapToPemasukan(raw: any[]): PemasukanData[] {
@@ -61,7 +64,7 @@ function toSapDate(isoDate: string): string {
 }
 
 export default function PemasukanPage() {
-  const { isAuthenticated, loading, csrfToken, logout, refreshToken } = useAuth()
+  const { isAuthenticated, userName, loading, csrfToken, logout, refreshToken } = useAuth()
   const router = useRouter()
   const [isClient, setIsClient] = useState(false)
 
@@ -251,67 +254,59 @@ export default function PemasukanPage() {
   }
 
   // ─── Loading & Auth ───────────────────────────────────────────────────────
-  if (!isClient || loading) {
-    return (
-      <div className='flex h-screen bg-gray-50 items-center justify-center'>
-        <div className='text-xl text-gray-500 animate-pulse'>Loading...</div>
-      </div>
-    )
-  }
+  const isPageLoading = !isClient || loading || (isFetching && data.length === 0)
 
-  if (!isAuthenticated) return null
+  if (isClient && !loading && !isAuthenticated) return null
 
   return (
-    <div className='flex h-screen bg-gray-50'>
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
       <Sidebar />
-      <div className='flex-1 min-w-0 overflow-hidden'>
-        <div className='h-full overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8'>
-          <div className='max-w-full'>
-
-            {/* Header */}
-            <div className='mb-4 lg:mb-6'>
-              <div className='flex items-center justify-between'>
-                <div className='flex items-center space-x-2 sm:space-x-3'>
-                  <span className='text-2xl sm:text-3xl lg:text-4xl'>{PEMASUKAN_CONFIG.icon}</span>
-                  <div>
-                    <h1 className='text-2xl sm:text-3xl lg:text-3xl font-bold text-gray-900'>
-                      {PEMASUKAN_CONFIG.title}
-                    </h1>
-                    <p className='text-gray-600 text-xs sm:text-sm mt-1'>
-                      {PEMASUKAN_CONFIG.description}
-                    </p>
-                  </div>
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <Topbar userName={userName} />
+        {isPageLoading ? (
+          <LoadingOverlay />
+        ) : (
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+          <div className="max-w-full space-y-6">
+            {/* Header Section */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div className="flex items-center gap-3.5">
+                <ArrowDownToLine className="w-8 h-8 sm:w-9 sm:h-9 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <div>
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                    {PEMASUKAN_CONFIG.title}
+                  </h1>
+                  <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-0.5">
+                    {PEMASUKAN_CONFIG.description}
+                  </p>
                 </div>
-                <div className='text-right'>
-                  <div className='text-xl sm:text-2xl lg:text-2xl font-bold text-blue-600'>
-                    {isFetching ? '...' : filteredData.length}
-                  </div>
-                  <div className='text-xs text-gray-500'>dari {data.length} total data</div>
+              </div>
+              <div className="text-right sm:text-right">
+                <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                  {isFetching ? '...' : filteredData.length}
+                </div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+                  dari {data.length} total data
                 </div>
               </div>
             </div>
 
             {/* Error Banner */}
             {fetchError && (
-              <div className='mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between'>
-                <span className='text-sm text-red-700'>⚠️ {fetchError}</span>
+              <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 rounded-2xl flex items-center justify-between shadow-xs">
+                <div className="flex items-center gap-2.5 text-rose-700 dark:text-rose-300 text-sm font-semibold">
+                  <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 dark:text-rose-400" />
+                  <span>{fetchError}</span>
+                </div>
                 <button
                   onClick={fetchData}
-                  className='text-xs text-red-600 underline hover:text-red-800 ml-4 flex-shrink-0'
+                  className="text-xs font-bold text-rose-600 dark:text-rose-400 underline hover:text-rose-800 dark:hover:text-rose-200 ml-4 shrink-0"
                 >
                   Coba lagi
                 </button>
               </div>
             )}
 
-            {/* Loading Indicator */}
-            {isFetching && (
-              <div className='mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg'>
-                <span className='text-sm text-blue-700 animate-pulse'>
-                  ⏳ Mengambil data dari SAP...
-                </span>
-              </div>
-            )}
 
             {/* Filters */}
             <FilterSection
@@ -332,13 +327,14 @@ export default function PemasukanPage() {
               dataCount={filteredData.length}
               customFilters={
                 <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
-                    🏢 KPPBC:
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap flex items-center gap-1.5">
+                    <Building2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    KPPBC:
                   </label>
                   <select
                     value={selectedKppbc}
                     onChange={(e) => setSelectedKppbc(e.target.value)}
-                    className="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 font-medium cursor-pointer"
+                    className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-sm rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 font-medium cursor-pointer"
                   >
                     <option value="KPPBC Pematangsiantar">KPPBC Pematangsiantar</option>
                     <option value="KPPBC Kuala Tanjung">KPPBC Kuala Tanjung</option>
@@ -348,7 +344,7 @@ export default function PemasukanPage() {
             />
 
             {/* Active Filters */}
-            <div className='bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 lg:mb-6 border border-gray-200'>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4 sm:p-5 border border-slate-200 dark:border-slate-800">
               <ActiveFilters
                 selectedPlant={selectedPlant}
                 onClearPlant={() => setSelectedPlant('')}
@@ -390,10 +386,12 @@ export default function PemasukanPage() {
               onClearAllFilters={clearAllFilters}
               tableConfig={PEMASUKAN_CONFIG.tableConfig}
               pageSize={25}
+              isLoading={isFetching}
             />
 
           </div>
         </div>
+      )}
       </div>
     </div>
   )

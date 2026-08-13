@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/components/useAuth'
 import { Eye, EyeOff } from 'lucide-react'
+import LoadingOverlay from '@/app/components/ui/LoadingOverlay'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
@@ -26,7 +27,7 @@ export default function LoginPage() {
     setLoading(true)
 
     const success = await login(username, password)
-    
+
     if (success) {
       // Router.push akan dipanggil otomatis oleh useEffect di atas
       // router.push('/dashboard') // ← Hapus ini
@@ -37,11 +38,7 @@ export default function LoginPage() {
   }
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-blue-500 to-purple-600">
-        <div className="text-white text-xl">Memeriksa sesi...</div>
-      </div>
-    )
+    return <LoadingOverlay title="Memeriksa Sesi..." subtitle="Harap tunggu sebentar..." />
   }
 
   // Jangan render form jika sudah authenticated
@@ -66,7 +63,7 @@ export default function LoginPage() {
               {error}
             </div>
           )}
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Username SAP

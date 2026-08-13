@@ -1,11 +1,21 @@
 // src/app/shared/components/DataTable.tsx
-// Perubahan: footer kini membedakan format jumlah (angka biasa) vs nilai (currency)
 
 'use client'
-import { ArrowUpDown, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import {
+  ArrowUpDown,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  PackageSearch,
+  RotateCcw,
+  RefreshCw,
+} from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { BaseData, ColumnConfig, SortConfig, TableConfig } from '../types'
 import { calculateTotal, formatCurrency } from '../utils/filterUtils'
+import { Spinner } from '@/app/components/ui/spinner'
 
 interface DataTableProps<T extends BaseData> {
   data: T[]
@@ -56,7 +66,7 @@ export default function DataTable<T extends BaseData>({
   const endIdx = Math.min(startIdx + rowsPerPage, data.length)
   const pageData = data.slice(startIdx, endIdx)
 
-  // Hitung footer totals dari SEMUA data (bukan hanya halaman ini)
+  // Hitung footer totals dari SEMUA data
   const footerTotals: Record<string, number> = {}
   if (tableConfig?.showFooter && tableConfig.footerCalculations) {
     tableConfig.footerCalculations.forEach((calc) => {
@@ -68,44 +78,26 @@ export default function DataTable<T extends BaseData>({
     })
   }
 
-  // ─── Helper: format nilai footer sesuai tipe kolom ───────────────────────
   const formatFooterValue = (colKey: string, value: number): string => {
     const key = colKey.toLowerCase()
     if (key.includes('nilai')) return formatCurrency(value)
-    // jumlah → angka biasa dengan separator ribuan
     return value.toLocaleString('id-ID')
   }
 
-  // ─── Loading / Skeleton state (Cegah kedip/layout shift saat memuat data) ──
+  // ─── Loading / Skeleton state ─────────────────────────────────────────────
   if (isLoading && data.length === 0) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gradient-to-r from-gray-50 to-blue-50 border-b-2 border-gray-200">
-              <tr>
-                {columns.map((col) => (
-                  <th
-                    key={col.key as string}
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200 last:border-r-0 whitespace-nowrap"
-                  >
-                    {col.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <tr key={i} className="animate-pulse">
-                  {columns.map((col, j) => (
-                    <td key={j} className="px-4 py-3.5 border-r border-gray-100 last:border-r-0">
-                      <div className="h-4 bg-gray-200 rounded-md w-3/4"></div>
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden p-8 sm:p-12">
+        <div className="flex flex-col items-center justify-center text-center space-y-4">
+          <Spinner size="xl" variant="primary" label="" />
+          <div>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
+              Menghubungkan ke Sistem SAP...
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+              Mengambil data inventory PT Industri Nabati Lestari
+            </p>
+          </div>
         </div>
       </div>
     )
@@ -114,28 +106,22 @@ export default function DataTable<T extends BaseData>({
   // ─── Empty state ──────────────────────────────────────────────────────────
   if (data.length === 0) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="text-center py-12 sm:py-16 bg-gray-50">
-          <div className="text-4xl sm:text-6xl mb-4">
-            {tableConfig?.emptyStateIcon || '🔍'}
-          </div>
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <div className="text-center py-12 sm:py-16 px-4 bg-slate-50/40 dark:bg-slate-900/40 flex flex-col items-center justify-center">
+          {/* Icon without background box */}
+          <PackageSearch className="w-10 h-10 text-slate-400 dark:text-slate-500 mb-3 stroke-[1.5]" />
+
+          <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">
             {tableConfig?.emptyStateMessage || 'Tidak ada data ditemukan'}
           </h3>
-          <p className="text-gray-500 mb-6 text-sm">Coba ubah filter atau kata kunci pencarian Anda</p>
-          {onClearAllFilters && (
-            <button
-              onClick={onClearAllFilters}
-              className="px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm"
-            >
-              Reset Semua Filter
-            </button>
-          )}
+
+          <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm max-w-sm leading-relaxed">
+            Coba ubah filter tanggal, lokasi plant, atau kata kunci pencarian Anda.
+          </p>
         </div>
       </div>
     )
   }
-
 
   const goToPage = (page: number) => {
     setCurrentPage(Math.min(Math.max(1, page), totalPages))
@@ -157,38 +143,32 @@ export default function DataTable<T extends BaseData>({
   }
 
   return (
-    <div className='bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden'>
-      <div className='overflow-x-auto'>
-        <table className='w-full'>
+    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors duration-200">
+      <div className="overflow-x-auto">
+        <table className="w-full">
           {/* HEADER */}
-          <thead className='bg-gradient-to-r from-gray-50 to-blue-50 border-b-2 border-gray-200'>
+          <thead className="bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700">
             <tr>
               {columns.map((col) => (
                 <th
                   key={col.key as string}
-                  className={`px-2 sm:px-3 lg:px-4 py-2.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200 last:border-r-0 ${
-                    col.sortable ? 'cursor-pointer hover:bg-gray-100' : ''
-                  } ${col.className || ''}`}
+                  className={`px-3 lg:px-4 py-3.5 text-left text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider border-r border-slate-200 dark:border-slate-700/60 last:border-r-0 ${col.sortable ? 'cursor-pointer hover:bg-slate-200/70 dark:hover:bg-slate-700' : ''
+                    } ${col.className || ''}`}
                   onClick={() => col.sortable && onSort(col.key)}
                 >
-                  <div className='flex items-center justify-between space-x-1 sm:space-x-2'>
-                    <span className='truncate'>{col.label}</span>
+                  <div className="flex items-center justify-between space-x-1.5">
+                    <span className="truncate">{col.label}</span>
 
                     {col.sortable && (
-                      <div className='flex items-center space-x-0.5'>
+                      <div className="flex items-center space-x-0.5 shrink-0">
                         <ArrowUpDown
-                          className={`w-3 h-3 sm:w-4 sm:h-4 text-gray-400 ${
-                            sortConfig.key === col.key ? 'text-blue-600' : ''
-                          }`}
+                          className={`w-3.5 h-3.5 ${sortConfig.key === col.key
+                              ? 'text-blue-600 dark:text-blue-400 font-bold'
+                              : 'text-slate-400 dark:text-slate-500'
+                            }`}
                         />
                         {sortConfig.key === col.key && (
-                          <span
-                            className={`text-xs ${
-                              sortConfig.direction === 'desc'
-                                ? 'text-blue-600 font-medium'
-                                : 'text-gray-500'
-                            }`}
-                          >
+                          <span className="text-xs text-blue-600 dark:text-blue-400 font-bold">
                             {sortConfig.direction === 'desc' ? '↓' : '↑'}
                           </span>
                         )}
@@ -196,13 +176,12 @@ export default function DataTable<T extends BaseData>({
                     )}
 
                     {col.filterable && onColumnFilter && (
-                      <div className='relative flex-shrink-0 ml-1'>
+                      <div className="relative shrink-0 ml-1">
                         <Filter
-                          className={`w-3 h-3 sm:w-4 sm:h-4 cursor-pointer transition-colors ${
-                            columnFilters[col.key as string]
-                              ? 'text-blue-600'
-                              : 'text-gray-400 hover:text-gray-600'
-                          }`}
+                          className={`w-3.5 h-3.5 cursor-pointer transition-colors ${columnFilters[col.key as string]
+                              ? 'text-blue-600 dark:text-blue-400'
+                              : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                            }`}
                           onClick={(e) => {
                             e.stopPropagation()
                             setShowColumnFilter?.(
@@ -211,31 +190,32 @@ export default function DataTable<T extends BaseData>({
                           }}
                         />
 
+                        {/* Column Filter Popover */}
                         {showColumnFilter === col.key && (
-                          <div className='absolute top-6 right-0 z-50 bg-white border border-gray-300 rounded-lg shadow-xl p-2.5 sm:p-3 w-56 sm:w-64'>
-                            <div className='mb-1.5 sm:mb-2'>
-                              <label className='text-xs font-medium text-gray-700'>
+                          <div className="absolute top-7 right-0 z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-3 w-56 sm:w-64">
+                            <div className="mb-2">
+                              <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
                                 Filter {col.label}
                               </label>
                             </div>
                             <input
-                              type='text'
+                              type="text"
                               placeholder={`Cari ${col.label.toLowerCase()}...`}
                               value={columnFilters[col.key as string] || ''}
                               onChange={(e) => onColumnFilter(col.key as string, e.target.value)}
-                              className='w-full px-2.5 sm:px-3 py-1.5 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                              className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                               autoFocus
                             />
-                            <div className='mt-1.5 sm:mt-2 flex justify-end space-x-1.5 sm:space-x-2'>
+                            <div className="mt-2.5 flex justify-end space-x-2">
                               <button
                                 onClick={() => onClearColumnFilter?.(col.key as string)}
-                                className='px-2.5 sm:px-3 py-1 text-xs text-gray-600 hover:text-gray-800'
+                                className="px-2.5 py-1 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                               >
                                 Clear
                               </button>
                               <button
                                 onClick={() => setShowColumnFilter?.(null)}
-                                className='px-2.5 sm:px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700'
+                                className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-xs"
                               >
                                 OK
                               </button>
@@ -251,93 +231,110 @@ export default function DataTable<T extends BaseData>({
           </thead>
 
           {/* BODY */}
-          <tbody className='divide-y divide-gray-200 bg-white'>
-            {pageData.map((row, idx) => (
-              <tr
-                key={`${row.no}-${idx}`}
-                className={`hover:bg-blue-50 transition-colors ${
-                  idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                }`}
-              >
-                {columns.map((col) => {
-                  const value = row[col.key]
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-800/80 bg-white dark:bg-slate-900">
+            {pageData.map((row, idx) => {
+              const isEvenRow = (idx + 1) % 2 === 0
+              return (
+                <tr
+                  key={`${row.no}-${idx}`}
+                  className={`transition-colors duration-150 ${isEvenRow
+                      ? 'bg-slate-50/80 dark:bg-slate-800/65'
+                      : 'bg-white dark:bg-slate-900'
+                    } hover:bg-blue-50/80 dark:hover:bg-slate-700/70`}
+                >
+                  {columns.map((col) => {
+                    const value = row[col.key]
 
-                  if (col.render) {
+                    if (col.render) {
+                      return (
+                        <td
+                          key={col.key as string}
+                          className={`px-3 lg:px-4 py-3 text-xs sm:text-sm border-r border-slate-100 dark:border-slate-800/60 last:border-r-0 ${col.className || ''}`}
+                        >
+                          {col.render(value, row)}
+                        </td>
+                      )
+                    }
+
+                    let displayValue: React.ReactNode = value
+                    let cellClass =
+                      'px-3 lg:px-4 py-3 text-xs sm:text-sm text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/60 last:border-r-0'
+
+                    if (col.key === 'no') {
+                      cellClass =
+                        'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 border-r border-slate-100 dark:border-slate-800/60'
+                    } else if (col.key === 'postingDate') {
+                      cellClass =
+                        'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm border-r border-slate-100 dark:border-slate-800/60'
+                      displayValue = (
+                        <span className="font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-900/40">
+                          {value}
+                        </span>
+                      )
+                    } else if (
+                      typeof value === 'number' &&
+                      col.key.toString().includes('nilai')
+                    ) {
+                      cellClass =
+                        'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white border-r border-slate-100 dark:border-slate-800/60'
+                      displayValue = formatCurrency(value)
+                    } else if (
+                      typeof value === 'number' &&
+                      col.key.toString().includes('jumlah')
+                    ) {
+                      cellClass =
+                        'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 border-r border-slate-100 dark:border-slate-800/60'
+                      displayValue = value.toLocaleString('id-ID')
+                    }
+
                     return (
-                      <td
-                        key={col.key as string}
-                        className={`px-2 sm:px-3 lg:px-4 py-2.5 text-xs sm:text-sm ${col.className || ''}`}
-                      >
-                        {col.render(value, row)}
+                      <td key={col.key as string} className={cellClass}>
+                        {displayValue}
                       </td>
                     )
-                  }
-
-                  let displayValue: React.ReactNode = value
-                  let cellClass = 'px-2 sm:px-3 lg:px-4 py-2.5 text-xs sm:text-sm text-gray-700'
-
-                  if (col.key === 'no') {
-                    cellClass = 'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900'
-                  } else if (col.key === 'postingDate') {
-                    cellClass = 'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm'
-                    displayValue = (
-                      <span className='font-semibold text-green-700 bg-green-50 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded'>
-                        {value}
-                      </span>
-                    )
-                  } else if (typeof value === 'number' && col.key.toString().includes('nilai')) {
-                    cellClass = 'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm font-bold text-gray-900'
-                    displayValue = formatCurrency(value)
-                  } else if (typeof value === 'number' && col.key.toString().includes('jumlah')) {
-                    cellClass = 'px-2 sm:px-3 lg:px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm font-semibold text-green-600'
-                    displayValue = value.toLocaleString('id-ID')
-                  }
-
-                  return (
-                    <td key={col.key as string} className={cellClass}>
-                      {displayValue}
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
+                  })}
+                </tr>
+              )
+            })}
           </tbody>
 
           {/* FOOTER */}
           {tableConfig?.showFooter && tableConfig?.footerCalculations?.length ? (
-            <tfoot className='bg-gradient-to-r from-emerald-50 to-green-50 border-t-2 border-emerald-200'>
-              <tr className='border-t-2 border-emerald-300'>
+            <tfoot className="bg-slate-100 dark:bg-slate-800 border-t-2 border-slate-300 dark:border-slate-700">
+              <tr>
                 {columns.map((col, colIdx) => {
                   const calculation = tableConfig.footerCalculations?.find(
                     (calc) => calc.column === col.key
                   )
 
-                  // Kolom pertama → label "TOTAL"
                   if (colIdx === 0) {
                     return (
-                      <td key={col.key as string} className='px-3 py-2 text-xs font-bold text-emerald-800 uppercase tracking-wide'>
+                      <td
+                        key={col.key as string}
+                        className="px-4 py-3 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider"
+                      >
                         TOTAL
                       </td>
                     )
                   }
 
                   if (!calculation) {
-                    return (
-                      <td key={col.key as string} className='px-3 py-2' />
-                    )
+                    return <td key={col.key as string} className="px-3 py-3" />
                   }
 
                   const totalValue = footerTotals[col.key as string] ?? 0
                   const formatted = formatFooterValue(col.key as string, totalValue)
 
-                  // Bedakan warna: jumlah → biru, nilai → emerald
                   const isNilai = (col.key as string).toLowerCase().includes('nilai')
                   const textClass = isNilai
-                    ? 'text-emerald-700'
-                    : 'text-blue-700'
+                    ? 'text-emerald-700 dark:text-emerald-400'
+                    : 'text-blue-700 dark:text-blue-400'
 
                   return (
-                    <td key={col.key as string} className={`px-3 py-2 text-xs sm:text-sm font-bold whitespace-nowrap ${textClass}`}>
+                    <td
+                      key={col.key as string}
+                      className={`px-3 lg:px-4 py-3 text-xs sm:text-sm font-black whitespace-nowrap ${textClass}`}
+                    >
                       {formatted}
                     </td>
                   )
@@ -349,60 +346,84 @@ export default function DataTable<T extends BaseData>({
       </div>
 
       {/* ─── Pagination Bar ───────────────────────────────────────────────────── */}
-      <div className='flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-200 bg-gray-50'>
-        <div className='flex items-center gap-3 text-xs text-gray-600'>
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
+        <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
           <span>
             Menampilkan{' '}
-            <span className='font-semibold text-gray-900'>{startIdx + 1}</span>–
-            <span className='font-semibold text-gray-900'>{endIdx}</span> dari{' '}
-            <span className='font-semibold text-gray-900'>{data.length}</span> data
+            <span className="font-bold text-slate-900 dark:text-slate-100">{startIdx + 1}</span>–
+            <span className="font-bold text-slate-900 dark:text-slate-100">{endIdx}</span> dari{' '}
+            <span className="font-bold text-slate-900 dark:text-slate-100">{data.length}</span> data
           </span>
 
-          <div className='flex items-center gap-1.5'>
+          <div className="flex items-center gap-1.5">
             <span>Baris:</span>
             <select
               value={rowsPerPage}
               onChange={(e) => setRowsPerPage(Number(e.target.value))}
-              className='border border-gray-300 rounded px-1.5 py-0.5 text-xs bg-white focus:ring-1 focus:ring-blue-500'
+              className="border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-0.5 text-xs bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-1 focus:ring-blue-500 font-medium cursor-pointer"
             >
               {[10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>{n}</option>
+                <option key={n} value={n}>
+                  {n}
+                </option>
               ))}
             </select>
           </div>
         </div>
 
         {totalPages > 1 && (
-          <div className='flex items-center gap-1'>
-            <button onClick={() => goToPage(1)} disabled={currentPage === 1}
-              className='p-1.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors' title='Halaman pertama'>
-              <ChevronsLeft className='w-4 h-4' />
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => goToPage(1)}
+              disabled={currentPage === 1}
+              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title="Halaman pertama"
+            >
+              <ChevronsLeft className="w-4 h-4" />
             </button>
-            <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}
-              className='p-1.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors' title='Halaman sebelumnya'>
-              <ChevronLeft className='w-4 h-4' />
+            <button
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title="Halaman sebelumnya"
+            >
+              <ChevronLeft className="w-4 h-4" />
             </button>
 
             {getPageNumbers().map((page, i) =>
               page === '...' ? (
-                <span key={`ellipsis-${i}`} className='px-1 text-gray-400 text-xs'>…</span>
+                <span key={`ellipsis-${i}`} className="px-1 text-slate-400 text-xs">
+                  …
+                </span>
               ) : (
-                <button key={page} onClick={() => goToPage(page as number)}
-                  className={`min-w-[28px] h-7 px-1 rounded text-xs font-medium transition-colors ${
-                    currentPage === page ? 'bg-blue-600 text-white shadow-sm' : 'hover:bg-gray-200 text-gray-700'
-                  }`}>
+                <button
+                  key={page}
+                  onClick={() => goToPage(page as number)}
+                  className={`min-w-[28px] h-7 px-1.5 rounded-lg text-xs font-bold transition-all ${currentPage === page
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                >
                   {page}
                 </button>
               )
             )}
 
-            <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}
-              className='p-1.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors' title='Halaman berikutnya'>
-              <ChevronRight className='w-4 h-4' />
+            <button
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title="Halaman berikutnya"
+            >
+              <ChevronRight className="w-4 h-4" />
             </button>
-            <button onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages}
-              className='p-1.5 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors' title='Halaman terakhir'>
-              <ChevronsRight className='w-4 h-4' />
+            <button
+              onClick={() => goToPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title="Halaman terakhir"
+            >
+              <ChevronsRight className="w-4 h-4" />
             </button>
           </div>
         )}

@@ -1,8 +1,10 @@
 // src/app/shared/components/FilterSection.tsx
 
 'use client'
-import { Search, Calendar, Download } from 'lucide-react'
-import { DateRange, FilterConfig } from '../types'  // ✅ Pastikan import FilterConfig
+import { Search, Download } from 'lucide-react'
+import { DateRange, FilterConfig } from '../types'
+import { DatePickerWithRange } from '@/components/ui/date-picker-with-range'
+import { InteractiveHoverButton } from '@/components/ui/interactive-hover-button'
 
 interface FilterSectionProps {
   // Plant filter
@@ -10,27 +12,27 @@ interface FilterSectionProps {
   selectedPlant?: string
   onPlantChange?: (plant: string) => void
   plantOptions?: { value: string; label: string }[]
-  
+
   // Global search
   showGlobalSearch?: boolean
   searchTerm?: string
   onSearchChange?: (search: string) => void
   searchPlaceholder?: string
-  
+
   // Date filter
   showDateFilter?: boolean
   dateRange?: DateRange
   onDateChange?: (field: 'start' | 'end', value: string) => void
-  dateLabel?: string  // ✅ Type sudah ada
-  
+  dateLabel?: string
+
   // Export
   showExportButton?: boolean
   onExportClick?: () => void
   dataCount?: number
-  
+
   // Custom filters
   customFilters?: React.ReactNode
-  
+
   // Config
   config?: FilterConfig
 }
@@ -40,28 +42,26 @@ export default function FilterSection({
   selectedPlant = '',
   onPlantChange,
   plantOptions = [],
-  
+
   showGlobalSearch = true,
   searchTerm = '',
   onSearchChange,
   searchPlaceholder = 'Cari nomor dokumen, nama barang...',
-  
+
   showDateFilter = true,
   dateRange,
   onDateChange,
-  dateLabel = 'Filter Tanggal',  // ✅ FIXED: Default string biasa
-  
+  dateLabel = 'Filter Tanggal',
+
   showExportButton = true,
   onExportClick,
   dataCount = 0,
-  
+
   customFilters,
-  config
+  config,
 }: FilterSectionProps) {
-  // ✅ FIXED: Ambil dateLabel dari config atau props
   const finalDateLabel = config?.dateLabel || dateLabel || 'Filter Tanggal'
-  
-  // Use config if provided
+
   const finalShowPlant = config?.showPlantFilter ?? showPlantFilter
   const finalShowSearch = config?.showGlobalSearch ?? showGlobalSearch
   const finalShowDate = config?.showDateFilter ?? showDateFilter
@@ -74,27 +74,19 @@ export default function FilterSection({
     onDateChange?.(field, value)
   }
 
-  // Calculate grid columns
-  let gridCols = 'lg:grid-cols-12'
-  const activeFilters = [
-    finalShowPlant,
-    finalShowSearch,
-    finalShowDate,
-    finalShowExport,
-    !!customFilters
-  ].filter(Boolean).length
-
   return (
-    <div className='bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 lg:mb-6 border border-gray-200'>
-      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4`}>
+    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4 sm:p-6 border border-slate-200 dark:border-slate-800 transition-colors duration-200">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4">
         {/* Plant Filter */}
         {finalShowPlant && plantOptions.length > 0 && (
-          <div className='md:col-span-1 lg:col-span-3'>
-            <label className='block text-xs font-medium text-gray-700 mb-1.5'>Plant</label>
+          <div className="md:col-span-1 lg:col-span-3">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              Plant
+            </label>
             <select
               value={selectedPlant}
               onChange={(e) => onPlantChange?.(e.target.value)}
-              className='w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all'
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-medium"
             >
               {plantOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -107,16 +99,18 @@ export default function FilterSection({
 
         {/* Global Search */}
         {finalShowSearch && (
-          <div className='md:col-span-1 lg:col-span-3'>
-            <label className='block text-xs font-medium text-gray-700 mb-1.5'>Pencarian Global</label>
-            <div className='relative'>
-              <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5' />
+          <div className="md:col-span-1 lg:col-span-3">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              Pencarian Global
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 sm:w-5 sm:h-5" />
               <input
-                type='text'
+                type="text"
                 placeholder={searchPlaceholder}
                 value={searchTerm}
                 onChange={(e) => onSearchChange?.(e.target.value)}
-                className='w-full pl-9 sm:pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all'
+                className="w-full pl-9 sm:pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
               />
             </div>
           </div>
@@ -124,50 +118,30 @@ export default function FilterSection({
 
         {/* Date Filter */}
         {finalShowDate && dateRange && (
-          <div className='md:col-span-2 lg:col-span-4'>
-            <label className='block text-xs font-medium text-gray-700 mb-1.5'>
-              {finalDateLabel}
-            </label>
-            <div className='flex flex-col sm:flex-row gap-1.5 sm:gap-2'>
-              <input
-                type='date'
-                value={dateRange.start}
-                onChange={(e) => handleDateChange('start', e.target.value)}
-                max={dateRange.end || new Date().toISOString().split('T')[0]}
-                className='flex-1 min-w-0 px-2 sm:px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-              />
-              <div className='hidden sm:flex items-center px-1'>
-                <Calendar className='w-4 h-4 text-gray-400' />
-              </div>
-              <input
-                type='date'
-                value={dateRange.end}
-                onChange={(e) => handleDateChange('end', e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
-                className='flex-1 min-w-0 px-2 sm:px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-              />
-            </div>
+          <div className="md:col-span-2 lg:col-span-4">
+            <DatePickerWithRange
+              label={finalDateLabel}
+              dateRange={dateRange}
+              onDateChange={handleDateChange}
+            />
           </div>
         )}
 
         {/* Custom Filters */}
         {customFilters && (
-          <div className='md:col-span-1 lg:col-span-3'>
-            {customFilters}
-          </div>
+          <div className="md:col-span-1 lg:col-span-3">{customFilters}</div>
         )}
 
         {/* Export Button */}
         {finalShowExport && (
-          <div className='md:col-span-2 lg:col-span-2 flex items-end'>
-            <button 
+          <div className="md:col-span-2 lg:col-span-2 flex items-end">
+            <InteractiveHoverButton
               onClick={onExportClick}
               disabled={dataCount === 0}
-              className='w-full px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all font-medium flex items-center justify-center space-x-1.5 text-sm'
-            >
-              <Download className='w-3 h-3 sm:w-4 sm:h-4' />
-              <span>Export</span>
-            </button>
+              text="Export"
+              icon={<Download className="w-4 h-4" />}
+              className="w-full h-10"
+            />
           </div>
         )}
       </div>
