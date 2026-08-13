@@ -1,10 +1,9 @@
 // src/app/shared/components/FilterSection.tsx
 
 'use client'
-import { Search, Download } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { DateRange, FilterConfig } from '../types'
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range'
-import { InteractiveHoverButton } from '@/components/ui/interactive-hover-button'
 
 interface FilterSectionProps {
   // Plant filter
@@ -25,7 +24,7 @@ interface FilterSectionProps {
   onDateChange?: (field: 'start' | 'end', value: string) => void
   dateLabel?: string
 
-  // Export
+  // Export (optional prop preserved for backward compatibility)
   showExportButton?: boolean
   onExportClick?: () => void
   dataCount?: number
@@ -53,10 +52,6 @@ export default function FilterSection({
   onDateChange,
   dateLabel = 'Filter Tanggal',
 
-  showExportButton = true,
-  onExportClick,
-  dataCount = 0,
-
   customFilters,
   config,
 }: FilterSectionProps) {
@@ -65,7 +60,6 @@ export default function FilterSection({
   const finalShowPlant = config?.showPlantFilter ?? showPlantFilter
   const finalShowSearch = config?.showGlobalSearch ?? showGlobalSearch
   const finalShowDate = config?.showDateFilter ?? showDateFilter
-  const finalShowExport = config?.showExportButton ?? showExportButton
 
   const handleDateChange = (field: 'start' | 'end', value: string) => {
     const today = new Date()
@@ -75,18 +69,19 @@ export default function FilterSection({
   }
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4 sm:p-6 border border-slate-200 dark:border-slate-800 transition-colors duration-200">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4">
-        {/* Plant Filter */}
+    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4 sm:p-6 border border-slate-200 dark:border-slate-800 transition-colors duration-200 space-y-4">
+      {/* Row 1: Filters (Plant, Date Range, & KPPBC / Custom Filters) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4 items-end">
+        {/* Kolom 1: Plant Filter */}
         {finalShowPlant && plantOptions.length > 0 && (
-          <div className="md:col-span-1 lg:col-span-3">
+          <div className="sm:col-span-1 lg:col-span-3">
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               Plant
             </label>
             <select
               value={selectedPlant}
               onChange={(e) => onPlantChange?.(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-medium"
+              className="w-full h-10 px-3 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-medium cursor-pointer shadow-2xs"
             >
               {plantOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -97,28 +92,9 @@ export default function FilterSection({
           </div>
         )}
 
-        {/* Global Search */}
-        {finalShowSearch && (
-          <div className="md:col-span-1 lg:col-span-3">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Pencarian Global
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 sm:w-5 sm:h-5" />
-              <input
-                type="text"
-                placeholder={searchPlaceholder}
-                value={searchTerm}
-                onChange={(e) => onSearchChange?.(e.target.value)}
-                className="w-full pl-9 sm:pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Date Filter */}
+        {/* Kolom 2: Date Filter */}
         {finalShowDate && dateRange && (
-          <div className="md:col-span-2 lg:col-span-4">
+          <div className={customFilters ? "sm:col-span-1 lg:col-span-5" : "sm:col-span-1 lg:col-span-9"}>
             <DatePickerWithRange
               label={finalDateLabel}
               dateRange={dateRange}
@@ -127,24 +103,30 @@ export default function FilterSection({
           </div>
         )}
 
-        {/* Custom Filters */}
+        {/* Kolom 3: Custom Filters (e.g. KPPBC Select) */}
         {customFilters && (
-          <div className="md:col-span-1 lg:col-span-3">{customFilters}</div>
-        )}
-
-        {/* Export Button */}
-        {finalShowExport && (
-          <div className="md:col-span-2 lg:col-span-2 flex items-end">
-            <InteractiveHoverButton
-              onClick={onExportClick}
-              disabled={dataCount === 0}
-              text="Export"
-              icon={<Download className="w-4 h-4" />}
-              className="w-full h-10"
-            />
-          </div>
+          <div className="sm:col-span-1 lg:col-span-4">{customFilters}</div>
         )}
       </div>
+
+      {/* Row 2: Full Width Global Search */}
+      {finalShowSearch && (
+        <div className="w-full pt-1">
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+            Pencarian Global
+          </label>
+          <div className="relative w-full">
+            <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 sm:w-5 sm:h-5" />
+            <input
+              type="text"
+              placeholder={searchPlaceholder}
+              value={searchTerm}
+              onChange={(e) => onSearchChange?.(e.target.value)}
+              className="w-full h-10 pl-10 sm:pl-11 pr-4 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-2xs"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

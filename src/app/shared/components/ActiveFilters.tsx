@@ -1,9 +1,10 @@
 // src/app/shared/components/ActiveFilters.tsx
 
 'use client'
-import { X, RotateCcw } from 'lucide-react'
+import { X, RotateCcw, Download } from 'lucide-react'
 import { ColumnConfig, DateRange } from '../types'
 import { formatDate } from '../utils/filterUtils'
+import { InteractiveHoverButton } from '@/components/ui/interactive-hover-button'
 
 interface ActiveFiltersProps<T = any> {
   selectedPlant?: string
@@ -24,6 +25,11 @@ interface ActiveFiltersProps<T = any> {
   plantOptions?: { value: string; label: string }[]
 
   customActiveFilters?: React.ReactNode
+
+  // Export Button Props
+  showExportButton?: boolean
+  onExportClick?: () => void
+  dataCount?: number
 }
 
 export default function ActiveFilters<T = any>({
@@ -39,6 +45,9 @@ export default function ActiveFilters<T = any>({
   columns,
   plantOptions = [],
   customActiveFilters,
+  showExportButton = true,
+  onExportClick,
+  dataCount = 0,
 }: ActiveFiltersProps<T>) {
   const activeFiltersCount =
     Object.keys(columnFilters).length +
@@ -46,14 +55,14 @@ export default function ActiveFilters<T = any>({
     (selectedPlant ? 1 : 0) +
     (dateRange?.start && dateRange?.end ? 1 : 0)
 
-  if (activeFiltersCount === 0 && !customActiveFilters) return null
-
   return (
-    <div className="flex items-center space-x-2 pt-3 sm:pt-4 border-t border-slate-200 dark:border-slate-800">
-      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-        Filter Aktif ({activeFiltersCount}):
-      </span>
-      <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Left side: Active Filter Badges */}
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+        <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 mr-1">
+          Filter Aktif ({activeFiltersCount}):
+        </span>
+
         {/* Plant Filter Badge */}
         {selectedPlant && onClearPlant && (
           <span className="inline-flex items-center px-2.5 sm:px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/50">
@@ -94,19 +103,34 @@ export default function ActiveFilters<T = any>({
           </span>
         ))}
 
-        {/* Custom Filters */}
+        {/* Custom Active Filters */}
         {customActiveFilters}
 
-        {/* Reset All Filters Button with Icon */}
-        <button
-          onClick={onClearAll}
-          title="Reset semua filter"
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-900/50 transition-all cursor-pointer shadow-xs"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Reset</span>
-        </button>
+        {/* Reset All Filters Button */}
+        {activeFiltersCount > 0 && (
+          <button
+            onClick={onClearAll}
+            title="Reset semua filter"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-900/50 transition-all cursor-pointer shadow-xs"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset</span>
+          </button>
+        )}
       </div>
+
+      {/* Right side: Export Button */}
+      {showExportButton && onExportClick && (
+        <div className="shrink-0 self-end sm:self-auto pt-2 sm:pt-0">
+          <InteractiveHoverButton
+            onClick={onExportClick}
+            disabled={dataCount === 0}
+            text="Export"
+            icon={<Download className="w-4 h-4" />}
+            className="w-[138px] h-9 text-xs"
+          />
+        </div>
+      )}
     </div>
   )
 }

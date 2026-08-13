@@ -25,12 +25,12 @@ const InteractiveHoverButton = React.forwardRef<
 
   const variantStyles = {
     emerald: {
-      button: "bg-emerald-600 text-white border-emerald-500/40 dark:bg-emerald-600 dark:text-white dark:border-emerald-400/30 shadow-sm shadow-emerald-900/20 hover:border-emerald-400 dark:hover:border-emerald-300",
+      button: "bg-emerald-600 text-white border-emerald-500/40 hover:border-emerald-400 dark:bg-emerald-600/90 dark:text-emerald-50 dark:border-emerald-400/40 dark:hover:border-emerald-300 shadow-sm shadow-emerald-950/20",
       dot: "bg-emerald-700 dark:bg-emerald-500",
-      hoverText: "text-white",
+      hoverText: "text-white dark:text-emerald-50",
     },
     default: {
-      button: "bg-white text-slate-900 border-slate-200 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-800 shadow-sm hover:border-slate-300 dark:hover:border-slate-700",
+      button: "bg-white text-slate-900 border-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700 shadow-sm hover:border-slate-300 dark:hover:border-slate-600",
       dot: "bg-blue-600 dark:bg-blue-500",
       hoverText: "text-white",
     },
@@ -46,7 +46,7 @@ const InteractiveHoverButton = React.forwardRef<
       ref={ref}
       disabled={disabled}
       className={cn(
-        "group relative inline-flex h-10 w-full min-w-[7.5rem] cursor-pointer items-center justify-center overflow-hidden rounded-xl border px-4 text-center text-sm font-bold transition-all duration-300 ease-out active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:border-transparent disabled:text-slate-400 dark:disabled:text-slate-500 disabled:shadow-none",
+        "group relative inline-flex h-10 w-full min-w-[138px] cursor-pointer items-center justify-center overflow-hidden rounded-xl border px-4 text-center text-sm font-bold transition-all duration-300 ease-out active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 disabled:bg-slate-200 dark:disabled:bg-slate-800/80 disabled:border-transparent disabled:text-slate-400 dark:disabled:text-slate-500 disabled:shadow-none",
         variantStyles.button,
         className,
       )}

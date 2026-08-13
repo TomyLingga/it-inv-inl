@@ -6,7 +6,24 @@ const ITINV_API_URL = process.env.ITINV_API_URL || 'http://127.0.0.1:8000/api'
 
 async function safeFetchJson(url: string, options: RequestInit) {
   const res = await fetch(url, options)
-  const text = await res.text()
+  let text = await res.text()
+
+  // Sanitize text if PHP warnings/errors were prepended before JSON output
+  const jsonStart = text.indexOf('{')
+  const arrayStart = text.indexOf('[')
+  let firstIdx = -1
+
+  if (jsonStart !== -1 && arrayStart !== -1) {
+    firstIdx = Math.min(jsonStart, arrayStart)
+  } else if (jsonStart !== -1) {
+    firstIdx = jsonStart
+  } else if (arrayStart !== -1) {
+    firstIdx = arrayStart
+  }
+
+  if (firstIdx > 0) {
+    text = text.slice(firstIdx)
+  }
 
   let data
   try {
@@ -15,7 +32,7 @@ async function safeFetchJson(url: string, options: RequestInit) {
     return NextResponse.json(
       {
         success: false,
-        error: `Koneksi Backend/Database Gagal (${res.status}): Server Laravel mengembalikan respon HTML. Pastikan service MySQL/Database sudah dinyalakan.`,
+        error: `Koneksi Backend/Database Gagal (${res.status}): Server Laravel mengembalikan respon non-JSON.`,
         raw: text.slice(0, 300)
       },
       { status: res.status || 500 }

@@ -13,6 +13,7 @@ import ExportModal from '@/app/shared/components/ExportModal'
 import DataTable from '@/app/shared/components/DataTable'
 import { Spinner } from '@/app/components/ui/spinner'
 import LoadingOverlay from '@/app/components/ui/LoadingOverlay'
+import { InteractiveHoverButton } from '@/components/ui/interactive-hover-button'
 
 // Shared Utils & Types
 import { StokData, SortConfig, ExportFormat } from '@/app/shared/types'
@@ -287,7 +288,7 @@ export default function StokPage() {
                   </p>
                 </div>
               </div>
-              <div className="text-right sm:text-right">
+              <div className="text-center sm:text-center">
                 <div className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400">
                   {isFetching ? '...' : filteredData.length}
                 </div>
@@ -315,17 +316,18 @@ export default function StokPage() {
 
 
             {/* Filters Toolbar */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4 sm:p-5 border border-slate-200 dark:border-slate-800 transition-colors duration-200">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4 sm:p-5 border border-slate-200 dark:border-slate-800 transition-colors duration-200 space-y-4">
+              {/* Row 1: Plant & Tanggal Stok */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4 items-end">
                 {/* Plant */}
-                <div className="md:col-span-1 lg:col-span-3">
+                <div className="sm:col-span-1 lg:col-span-6">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                     Plant
                   </label>
                   <select
                     value={selectedPlant}
                     onChange={(e) => setSelectedPlant(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium cursor-pointer"
+                    className="w-full h-10 px-3 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium cursor-pointer shadow-2xs"
                   >
                     {PLANT_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -335,25 +337,8 @@ export default function StokPage() {
                   </select>
                 </div>
 
-                {/* Search */}
-                <div className="md:col-span-1 lg:col-span-4">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Pencarian Global
-                  </label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4" />
-                    <input
-                      type="text"
-                      placeholder="Cari kode barang, nama barang..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:ring-2 focus:ring-blue-500 transition-all"
-                    />
-                  </div>
-                </div>
-
                 {/* Single Date */}
-                <div className="md:col-span-1 lg:col-span-3">
+                <div className="sm:col-span-1 lg:col-span-6">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Tanggal Stok</span>
@@ -363,26 +348,31 @@ export default function StokPage() {
                     value={selectedDate}
                     max={getTodayIso()}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 font-medium cursor-pointer"
+                    className="w-full h-10 px-3 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 font-medium cursor-pointer shadow-2xs"
                   />
                 </div>
+              </div>
 
-                {/* Export */}
-                <div className="md:col-span-1 lg:col-span-2 flex items-end">
-                  <button
-                    onClick={() => setShowExportModal(true)}
-                    disabled={filteredData.length === 0}
-                    className="w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl disabled:bg-slate-300 dark:disabled:bg-slate-800 disabled:cursor-not-allowed transition-all font-bold flex items-center justify-center space-x-1.5 text-sm shadow-xs"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Export</span>
-                  </button>
+              {/* Row 2: Full Width Global Search */}
+              <div className="w-full pt-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Pencarian Global
+                </label>
+                <div className="relative w-full">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 sm:w-5 sm:h-5" />
+                  <input
+                    type="text"
+                    placeholder="Cari kode barang, nama barang..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full h-10 pl-10 sm:pl-11 pr-4 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:ring-2 focus:ring-blue-500 transition-all shadow-2xs"
+                  />
                 </div>
               </div>
             </div>
 
             {/* Active Filters Bar */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4 sm:p-5 border border-slate-200 dark:border-slate-800 transition-colors duration-200">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4 sm:p-5 border border-slate-200 dark:border-slate-800 transition-colors duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex flex-wrap gap-2 items-center">
                 <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                   Filter Aktif:
@@ -433,6 +423,17 @@ export default function StokPage() {
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>Reset</span>
                 </button>
+              </div>
+
+              {/* Export Button */}
+              <div className="shrink-0 self-end sm:self-auto pt-2 sm:pt-0">
+                <InteractiveHoverButton
+                  onClick={() => setShowExportModal(true)}
+                  disabled={filteredData.length === 0}
+                  text="Export"
+                  icon={<Download className="w-4 h-4" />}
+                  className="w-[138px] h-9 text-xs"
+                />
               </div>
             </div>
 
