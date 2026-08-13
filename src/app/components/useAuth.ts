@@ -1,7 +1,7 @@
 // src/app/components/useAuth.ts
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
 
 interface AuthState {
   csrfToken: string | null
@@ -10,16 +10,21 @@ interface AuthState {
   loading: boolean
 }
 
+interface AuthContextType extends AuthState {
+  login: (username: string, password: string) => Promise<boolean>
+  logout: (clearStorage?: boolean) => void
+  checkAuth: () => Promise<boolean>
+  refreshToken: () => Promise<string | null>
+}
+
+const AuthContext = createContext<AuthContextType | null>(null)
+
 // Interval refresh token (ms). Harus lebih pendek dari TTL SAP.
-// SAP biasanya 30 menit — kita refresh tiap 20 menit.
 const TOKEN_REFRESH_INTERVAL_MS = 20 * 60 * 1000
-
-// Berapa kali boleh gagal refresh sebelum benar-benar logout
 const MAX_REFRESH_FAILURES = 3
-
 const API_BASE = '/api/sap-proxy'
 
-export function useAuth() {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     csrfToken: null,
     isAuthenticated: false,
@@ -27,14 +32,10 @@ export function useAuth() {
     loading: true,
   })
 
-  // Simpan credentials di ref — tidak re-render, tetap tersedia di interval callback
   const credentialsRef = useRef<{ username: string; password: string } | null>(null)
-  // Gunakan setInterval (bukan setTimeout rekursif) agar timer tidak pernah "hilang"
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  // Hitung kegagalan berturut-turut agar tidak logout karena network blip sesaat
   const failureCountRef = useRef(0)
-
-  // ─── Helpers ────────────────────────────────────────────────────────────────
+  const isRefreshingRef = useRef<Promise<string | null> | null>(null)
 
   const stopRefreshInterval = useCallback(() => {
     if (refreshIntervalRef.current) {
@@ -64,8 +65,6 @@ export function useAuth() {
     }
   }, [])
 
-  // ─── Logout ─────────────────────────────────────────────────────────────────
-
   const logout = useCallback((clearStorage = true) => {
     stopRefreshInterval()
     credentialsRef.current = null
@@ -84,17 +83,12 @@ export function useAuth() {
     })
   }, [stopRefreshInterval])
 
-  // ─── Start interval refresh ──────────────────────────────────────────────────
-
   const startRefreshInterval = useCallback((username: string, password: string) => {
-    // Hentikan yang lama dulu agar tidak double-run
     stopRefreshInterval()
 
     refreshIntervalRef.current = setInterval(async () => {
-      // Ambil credentials dari ref (selalu fresh, tidak stale closure)
       const creds = credentialsRef.current
       if (!creds) {
-        console.warn('⚠️ No credentials in ref, stopping refresh')
         stopRefreshInterval()
         return
       }
@@ -105,47 +99,55 @@ export function useAuth() {
       if (newToken) {
         failureCountRef.current = 0
         localStorage.setItem('sap_csrf_token', newToken)
-        setState(prev => ({ ...prev, csrfToken: newToken }))
-        console.log('✅ Token refreshed successfully')
+        setState(prev => ({ ...prev, csrfToken: newToken, isAuthenticated: true }))
       } else {
         failureCountRef.current += 1
-        console.warn(`⚠️ Token refresh failed (${failureCountRef.current}/${MAX_REFRESH_FAILURES})`)
-
         if (failureCountRef.current >= MAX_REFRESH_FAILURES) {
-          console.error('❌ Max refresh failures reached, logging out')
-          // Gunakan clearStorage=true karena token benar-benar tidak bisa diperbarui
           logout(true)
         }
-        // Jika belum mencapai limit, biarkan interval berjalan dan coba lagi
       }
     }, TOKEN_REFRESH_INTERVAL_MS)
-
-    console.log(`🕐 Token refresh interval started (every ${TOKEN_REFRESH_INTERVAL_MS / 60000} min)`)
   }, [stopRefreshInterval, fetchCsrfToken, logout])
 
-  // ─── refreshToken (bisa dipanggil dari luar, misal saat dapat 403) ──────────
-
   /**
-   * Coba refresh token secara manual (dipanggil saat request SAP dapat 403).
-   * Return token baru jika berhasil, null jika gagal.
+   * Manual token refresh (deduplicated — hanya 1 request aktif)
    */
   const refreshToken = useCallback(async (): Promise<string | null> => {
-    const creds = credentialsRef.current
-    if (!creds) return null
-
-    console.log('🔄 Manual token refresh triggered...')
-    const newToken = await fetchCsrfToken(creds.username, creds.password)
-    if (newToken) {
-      failureCountRef.current = 0
-      localStorage.setItem('sap_csrf_token', newToken)
-      setState(prev => ({ ...prev, csrfToken: newToken }))
-      console.log('✅ Manual token refresh success')
-      return newToken
+    if (isRefreshingRef.current) {
+      return isRefreshingRef.current
     }
-    return null
-  }, [fetchCsrfToken])
 
-  // ─── checkAuth ──────────────────────────────────────────────────────────────
+    let creds = credentialsRef.current
+    if (!creds) {
+      const savedUser = typeof window !== 'undefined' ? localStorage.getItem('sap_username') : null
+      const savedPassEnc = typeof window !== 'undefined' ? localStorage.getItem('sap_password_enc') : null
+      if (savedUser && savedPassEnc) {
+        creds = { username: savedUser, password: atob(savedPassEnc) }
+        credentialsRef.current = creds
+      } else {
+        return null
+      }
+    }
+
+    const refreshPromise = (async () => {
+      try {
+        console.log('🔄 Single deduplicated token refresh triggered...')
+        const newToken = await fetchCsrfToken(creds!.username, creds!.password)
+        if (newToken) {
+          failureCountRef.current = 0
+          localStorage.setItem('sap_csrf_token', newToken)
+          setState(prev => ({ ...prev, csrfToken: newToken, isAuthenticated: true }))
+          return newToken
+        }
+        return null
+      } finally {
+        isRefreshingRef.current = null
+      }
+    })()
+
+    isRefreshingRef.current = refreshPromise
+    return refreshPromise
+  }, [fetchCsrfToken])
 
   const checkAuth = useCallback(async (): Promise<boolean> => {
     try {
@@ -157,6 +159,7 @@ export function useAuth() {
         const savedPass = atob(savedPassEnc)
         credentialsRef.current = { username: savedUser, password: savedPass }
 
+        // Set state awal dari localStorage
         setState({
           csrfToken: savedToken,
           isAuthenticated: true,
@@ -164,12 +167,11 @@ export function useAuth() {
           loading: false,
         })
 
-        // Langsung refresh token sekarang untuk memastikan masih valid,
-        // kemudian jadwalkan interval rutin
+        // Ambil token & cookie baru yang valid dari SAP (1x saja)
         const freshToken = await fetchCsrfToken(savedUser, savedPass)
         if (freshToken) {
           localStorage.setItem('sap_csrf_token', freshToken)
-          setState(prev => ({ ...prev, csrfToken: freshToken }))
+          setState(prev => ({ ...prev, csrfToken: freshToken, isAuthenticated: true, loading: false }))
         }
 
         startRefreshInterval(savedUser, savedPass)
@@ -185,13 +187,9 @@ export function useAuth() {
     }
   }, [fetchCsrfToken, startRefreshInterval])
 
-  // ─── Login ──────────────────────────────────────────────────────────────────
-
   const login = useCallback(async (username: string, password: string): Promise<boolean> => {
     try {
       setState(prev => ({ ...prev, loading: true }))
-      console.log('🔐 Attempting login for:', username)
-
       const csrfToken = await fetchCsrfToken(username, password)
 
       if (!csrfToken) {
@@ -199,14 +197,10 @@ export function useAuth() {
         return false
       }
 
-      console.log('✅ Login success')
-
-      // Simpan ke localStorage
       localStorage.setItem('sap_csrf_token', csrfToken)
       localStorage.setItem('sap_username', username)
       localStorage.setItem('sap_password_enc', btoa(password))
 
-      // Simpan credentials di ref untuk interval refresh
       credentialsRef.current = { username, password }
 
       setState({
@@ -216,22 +210,31 @@ export function useAuth() {
         loading: false,
       })
 
-      // Mulai interval refresh
       startRefreshInterval(username, password)
       return true
     } catch (error) {
-      console.error('💥 Login exception:', error)
+      console.error('Login error:', error)
       setState(prev => ({ ...prev, loading: false }))
       return false
     }
   }, [fetchCsrfToken, startRefreshInterval])
 
-  // ─── Init ───────────────────────────────────────────────────────────────────
-
   useEffect(() => {
     checkAuth()
-    return () => stopRefreshInterval() // cleanup saat unmount
-  }, [checkAuth, stopRefreshInterval])
+    return () => stopRefreshInterval()
+  }, [])
 
-  return { ...state, login, logout, checkAuth, refreshToken }
+  return React.createElement(
+    AuthContext.Provider,
+    { value: { ...state, login, logout, checkAuth, refreshToken } },
+    children
+  )
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
 }

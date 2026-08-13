@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   description: 'Aplikasi IT Inventory',
 }
 
+import { AuthProvider } from '@/app/components/useAuth'
+
 export default function RootLayout({
   children,
 }: {
@@ -19,7 +21,9 @@ export default function RootLayout({
     <html lang="id">
       <body className={inter.className}>
         <ToastProvider>
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </ToastProvider>
       </body>
     </html>

@@ -148,11 +148,11 @@ export default function PoListPage() {
   }, [isClient, loading, isAuthenticated, router])
 
   useEffect(() => {
-    if (isAuthenticated && csrfToken && !hasFetchedRef.current) {
+    if (!loading && isAuthenticated && csrfToken && !hasFetchedRef.current) {
       hasFetchedRef.current = true
       fetchData()
     }
-  }, [isAuthenticated, csrfToken, fetchData])
+  }, [loading, isAuthenticated, csrfToken, fetchData])
 
   // Handler update KPPBC PO
   const handleChangeKppbc = async (ebeln: string, newKppbc: string) => {

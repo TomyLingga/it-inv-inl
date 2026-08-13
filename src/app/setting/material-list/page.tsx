@@ -162,11 +162,11 @@ export default function MaterialListPage() {
   }, [isClient, loading, isAuthenticated, router])
 
   useEffect(() => {
-    if (isAuthenticated && csrfToken && !hasFetchedRef.current) {
+    if (!loading && isAuthenticated && csrfToken && !hasFetchedRef.current) {
       hasFetchedRef.current = true
       fetchData()
     }
-  }, [isAuthenticated, csrfToken, fetchData])
+  }, [loading, isAuthenticated, csrfToken, fetchData])
 
   // Handler update status fasilitas
   const handleToggleFacility = async (matnr: string, currentStatus: boolean) => {

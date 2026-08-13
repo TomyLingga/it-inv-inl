@@ -165,10 +165,16 @@ export default function PengeluaranPage() {
           return setting && Boolean(setting.is_facility) === true
         })
 
-        // Filter 2: Filter berdasarkan Kantor KPPBC PO (KPPBC Pematangsiantar vs KPPBC Kuala Tanjung)
+        // Filter 2: Filter berdasarkan Kantor KPPBC (bisa PO, PO STO, atau SO)
         filteredList = filteredList.filter((item) => {
           const normPo = normalizeCode(item.nomorPo)
-          const poSetting = kppbcMap[normPo] || kppbcMap[item.nomorPo]
+          const normSo = normalizeCode(item.nomorSO)
+
+          // Cek kppbcMap berdasarkan VBELN (SO) dahulu, jika tidak ada baru EBELN (PO / PO STO)
+          const poSetting =
+            (normSo ? kppbcMap[normSo] || kppbcMap[item.nomorSO] : null) ||
+            (normPo ? kppbcMap[normPo] || kppbcMap[item.nomorPo] : null)
+
           const itemKppbc = poSetting ? poSetting.kppbc : 'Belum Ditentukan'
           return itemKppbc === selectedKppbc
         })
