@@ -60,8 +60,24 @@ export default function PoListPage() {
   // Filter states
   const [searchTerm, setSearchTerm] = useState('')
   const [kppbcFilter, setKppbcFilter] = useState<string>('all')
+  const [kppbcOptions, setKppbcOptions] = useState<{ value: string; label: string }[]>([
+    { value: 'KPPBC Pematangsiantar', label: 'KPPBC Pematangsiantar' },
+    { value: 'KPPBC Medan', label: 'KPPBC Medan' },
+  ])
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({})
   const [showColumnFilter, setShowColumnFilter] = useState<string | null>(null)
+
+  // Fetch KPPBC options dari DB API
+  useEffect(() => {
+    fetch('/api/kppbc')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.success && Array.isArray(json?.data) && json.data.length > 0) {
+          setKppbcOptions(json.data)
+        }
+      })
+      .catch((err) => console.error('Gagal mengambil daftar KPPBC:', err))
+  }, [])
 
   // Sort state
   const [sortConfig, setSortConfig] = useState<SortConfig<PoListData>>({
@@ -217,16 +233,18 @@ export default function PoListPage() {
                 value={row.kppbc}
                 onChange={(e) => handleChangeKppbc(row.ebeln, e.target.value)}
                 disabled={isSaving}
-                className={`text-xs font-bold rounded-lg px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer transition-all border ${row.kppbc === 'KPPBC Pematangsiantar'
+                className={`text-xs font-bold rounded-lg px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer transition-all border ${
+                  row.kppbc !== 'Belum Ditentukan'
                     ? 'bg-purple-50 dark:bg-purple-950/60 border-purple-200 dark:border-purple-900/40 text-purple-700 dark:text-purple-300'
-                    : row.kppbc === 'KPPBC Kuala Tanjung'
-                      ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-900/40 text-blue-700 dark:text-blue-300'
-                      : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-                  } disabled:opacity-50`}
+                    : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                } disabled:opacity-50`}
               >
                 <option value="Belum Ditentukan">Belum Ditentukan</option>
-                <option value="KPPBC Pematangsiantar">KPPBC Pematangsiantar</option>
-                <option value="KPPBC Kuala Tanjung">KPPBC Kuala Tanjung</option>
+                {kppbcOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
             </div>
           )
@@ -238,7 +256,7 @@ export default function PoListPage() {
       { key: 'noPend', label: 'Nomor Pendftr', filterable: true, sortable: true },
       { key: 'tglPend', label: 'Tgl Pendftr', filterable: true, sortable: true },
     ],
-    [savingEbeln]
+    [savingEbeln, kppbcOptions]
   )
 
   // Process & Filter Data
@@ -400,8 +418,9 @@ export default function PoListPage() {
                     className="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium cursor-pointer"
                   >
                     <option value="all">Semua KPPBC (Gabungan)</option>
-                    <option value="KPPBC Pematangsiantar">KPPBC Pematangsiantar</option>
-                    <option value="KPPBC Kuala Tanjung">KPPBC Kuala Tanjung</option>
+                    {kppbcOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </select>
                 </div>
               </div>

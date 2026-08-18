@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/components/useAuth'
 import Sidebar, { Topbar } from '@/app/components/Sidebar'
-import { Calendar, Package, AlertCircle, Loader2, Download, Search, X, RotateCcw, Factory } from 'lucide-react'
+import { Calendar, Package, AlertCircle, Loader2, Download, Search, X, RotateCcw, Factory, Layers, List } from 'lucide-react'
 import { fetchWithTokenRefresh } from '@/lib/fetchWithTokenRefresh'
 
 // Shared Components
@@ -28,6 +28,47 @@ import {
 // Module-specific Config
 import { STOK_CONFIG } from './config'
 
+// ─── Grouping stok data by Material + Location ──────────────────────────────
+function groupStokData(items: StokData[]): StokData[] {
+  const groupsMap: Record<string, StokData> = {}
+
+  items.forEach((item) => {
+    const key = `${item.kodeBarang}|${item.lokasiId}`
+    if (!groupsMap[key]) {
+      groupsMap[key] = {
+        ...item,
+        no: 0,
+        groupKey: key,
+        batchesCount: 1,
+        batchesList: [
+          {
+            batch: item.batch,
+            jumlah: item.jumlah,
+            nilaiBarang: item.nilaiBarang,
+          },
+        ],
+      }
+    } else {
+      const g = groupsMap[key]
+      g.jumlah += item.jumlah
+      g.nilaiBarang += item.nilaiBarang
+      g.batchesCount = (g.batchesCount || 1) + 1
+      g.batchesList?.push({
+        batch: item.batch,
+        jumlah: item.jumlah,
+        nilaiBarang: item.nilaiBarang,
+      })
+    }
+  })
+
+  return Object.values(groupsMap).map((g) => {
+    if (g.batchesCount && g.batchesCount > 1) {
+      g.batch = `${g.batchesCount} Batch`
+    }
+    return g
+  })
+}
+
 // ─── SAP response → StokData mapper ──────────────────────────────────────────
 function mapSapToStok(raw: any[], selectedDate: string): StokData[] {
   return raw.map((item, idx) => ({
@@ -39,11 +80,13 @@ function mapSapToStok(raw: any[], selectedDate: string): StokData[] {
     kodeBarang: item.MATNR ?? '',
     kodeHS: item.HSCODE ?? '',
     namaBarang: item.MAKTX ?? '',
+    tipeMaterial: item.MTBEZ ?? '',
+    grupMaterial: item.WGBEZ ?? '',
     lokasi: item.LGOBE ?? '',
     lokasiId: item.LGORT ?? '',
     satuan: item.MEINS ?? '',
     jumlah: Number(item.END_STOCK_QTY) || 0,
-    nilaiBarang: (Number(item.END_STOCK_VALUE) || 0) * 100,
+    nilaiBarang: Number(item.END_STOCK_VALUE) || 0,
     currency: item.WAERS ?? '',
   }))
 }
@@ -67,12 +110,28 @@ export default function StokPage() {
   const [isFetching, setIsFetching] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
+  // View Mode State: Grouped vs Flat
+  const [isGroupedView, setIsGroupedView] = useState(true)
+
   // Filter states
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedDate, setSelectedDate] = useState(getTodayIso())
   const [selectedPlant, setSelectedPlant] = useState('IN01')
+  const [plantOptions, setPlantOptions] = useState<{ value: string; label: string }[]>(PLANT_OPTIONS)
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({})
   const [showColumnFilter, setShowColumnFilter] = useState<string | null>(null)
+
+  // Fetch Plant options dari DB API
+  useEffect(() => {
+    fetch('/api/plants')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.success && Array.isArray(json?.data) && json.data.length > 0) {
+          setPlantOptions(json.data)
+        }
+      })
+      .catch((err) => console.error('Gagal mengambil daftar plant:', err))
+  }, [])
 
   // Sort state
   const [sortConfig, setSortConfig] = useState<SortConfig<StokData>>({
@@ -214,9 +273,13 @@ export default function StokPage() {
       }
     })
 
+    if (isGroupedView) {
+      result = groupStokData(result)
+    }
+
     result.sort(createSortFunction(sortConfig))
     setFilteredData(resequenceData(result))
-  }, [data, searchTerm, columnFilters, sortConfig])
+  }, [data, searchTerm, columnFilters, sortConfig, isGroupedView])
 
   // Handlers
   const handleSort = (key: keyof StokData) => {
@@ -261,6 +324,60 @@ export default function StokPage() {
     setShowExportModal(false)
   }
 
+  const renderExpandedRow = (row: StokData) => {
+    if (!row.batchesList || row.batchesList.length <= 1) return null
+
+    return (
+      <div className="p-4 sm:p-5 bg-slate-950 text-slate-100 border-y-2 border-indigo-500/40 my-1 rounded-xl shadow-2xl space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+          <div className="flex items-center space-x-2 text-xs font-black text-indigo-400">
+            <Package className="w-4 h-4 text-indigo-400 shrink-0" />
+            <span>BREAKDOWN BATCH ({row.batchesList.length} BATCH) — {row.namaBarang}</span>
+          </div>
+          <div className="flex items-center space-x-3 text-xs text-slate-400">
+            <span>Lokasi: <strong className="text-white">{row.lokasi}</strong> ({row.lokasiId})</span>
+            <span>Total Qty: <strong className="text-emerald-400">{row.jumlah.toLocaleString('id-ID')} {row.satuan}</strong></span>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/90">
+          <table className="w-full text-xs">
+            <thead className="bg-slate-900 text-slate-300 border-b border-slate-800 uppercase tracking-wider text-[10px] font-extrabold">
+              <tr>
+                <th className="px-3 py-2 text-center w-12 border-r border-slate-800">Sub No</th>
+                <th className="px-3.5 py-2 text-left border-r border-slate-800">Kode Batch</th>
+                <th className="px-3.5 py-2 text-right border-r border-slate-800">Jumlah Stok Batch</th>
+                <th className="px-3 py-2 text-center border-r border-slate-800">Mata Uang</th>
+                <th className="px-3.5 py-2 text-right">Nilai Stok Batch</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/70 font-medium">
+              {row.batchesList.map((b, bIdx) => (
+                <tr key={b.batch || bIdx} className="hover:bg-slate-800/80 transition-colors">
+                  <td className="px-3 py-2 text-center text-slate-500 font-bold border-r border-slate-800/60">{bIdx + 1}</td>
+                  <td className="px-3.5 py-2 text-left font-mono text-emerald-400 font-bold border-r border-slate-800/60">
+                    {b.batch || <span className="text-slate-600 font-sans italic">Tanpa Batch</span>}
+                  </td>
+                  <td className="px-3.5 py-2 text-right text-emerald-300 font-bold border-r border-slate-800/60">
+                    {b.jumlah.toLocaleString('id-ID')} {row.satuan}
+                  </td>
+                  <td className="px-3 py-2 text-center border-r border-slate-800/60">
+                    <span className="bg-slate-800 text-slate-200 px-2 py-0.5 rounded text-[10px] font-bold">
+                      {row.currency || 'IDR'}
+                    </span>
+                  </td>
+                  <td className="px-3.5 py-2 text-right text-white font-extrabold">
+                    {b.nilaiBarang.toLocaleString('id-ID')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
   const isPageLoading = !isClient || loading || (isFetching && data.length === 0)
 
   if (isClient && !loading && !isAuthenticated) return null
@@ -293,7 +410,7 @@ export default function StokPage() {
                   {isFetching ? '...' : filteredData.length}
                 </div>
                 <div className="text-xs text-slate-400 dark:text-slate-500 font-medium">
-                  dari {data.length} total data
+                  {isGroupedView ? 'kelompok barang' : `dari ${data.length} total data`}
                 </div>
               </div>
             </div>
@@ -314,7 +431,6 @@ export default function StokPage() {
               </div>
             )}
 
-
             {/* Filters Toolbar */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4 sm:p-5 border border-slate-200 dark:border-slate-800 transition-colors duration-200 space-y-4">
               {/* Row 1: Plant & Tanggal Stok */}
@@ -330,7 +446,7 @@ export default function StokPage() {
                     onChange={(e) => setSelectedPlant(e.target.value)}
                     className="w-full h-10 px-3 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 transition-all font-medium cursor-pointer shadow-2xs"
                   >
-                    {PLANT_OPTIONS.map((o) => (
+                    {plantOptions.map((o) => (
                       <option key={o.value} value={o.value}>
                         {o.label}
                       </option>
@@ -363,7 +479,7 @@ export default function StokPage() {
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 sm:w-5 sm:h-5" />
                   <input
                     type="text"
-                    placeholder="Cari kode barang, nama barang..."
+                    placeholder="Cari kode barang, nama barang, batch, lokasi..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full h-10 pl-10 sm:pl-11 pr-4 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:ring-2 focus:ring-blue-500 transition-all shadow-2xs"
@@ -372,8 +488,8 @@ export default function StokPage() {
               </div>
             </div>
 
-            {/* Active Filters Bar */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4 sm:p-5 border border-slate-200 dark:border-slate-800 transition-colors duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Active Filters Bar & View Mode Toggle */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4 sm:p-5 border border-slate-200 dark:border-slate-800 transition-colors duration-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div className="flex flex-wrap gap-2 items-center">
                 <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
                   Filter Aktif:
@@ -426,8 +542,37 @@ export default function StokPage() {
                 </button>
               </div>
 
-              {/* Export Button */}
-              <div className="shrink-0 self-end sm:self-auto pt-2 sm:pt-0">
+              {/* View Mode Toggle & Export Button */}
+              <div className="flex flex-wrap items-center gap-3 shrink-0">
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setIsGroupedView(true)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      isGroupedView
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                    }`}
+                    title="Tampilkan data tergrup per Material & Lokasi"
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>Tergrup (Ringkasan)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsGroupedView(false)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      !isGroupedView
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                    }`}
+                    title="Tampilkan semua baris batch secara detail"
+                  >
+                    <List className="w-3.5 h-3.5" />
+                    <span>Detail Flat (Semua Batch)</span>
+                  </button>
+                </div>
+
                 <InteractiveHoverButton
                   onClick={() => setShowExportModal(true)}
                   disabled={filteredData.length === 0}
@@ -453,6 +598,7 @@ export default function StokPage() {
               tableConfig={STOK_CONFIG.tableConfig}
               pageSize={25}
               isLoading={isFetching}
+              renderExpandedRow={renderExpandedRow}
             />
           </div>
         </div>

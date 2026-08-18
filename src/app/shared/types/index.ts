@@ -83,9 +83,15 @@ export interface PemasukanData extends BaseData {
   kodeBarang: string
   kodeHS: string
   namaBarang: string
+  tipeMaterial: string       // MTBEZ - Deskripsi Material Type
+  grupMaterial: string       // WGBEZ - Deskripsi Material Group
   satuan: string
   jumlah: number
-  nilaiBarang: number
+  nilaiBarang: number        // NILAIBRG (Nilai Barang Dokumen)
+  mataUangDokumen: string    // DOC_WAERS
+  mataUangLokal: string      // WAERS
+  kursDokumen: number        // WKURS
+  nilaiBarangLokal: number   // NILAIBRG * WKURS
   // plant?: string
 }
 
@@ -103,13 +109,25 @@ export interface PengeluaranData extends BaseData {
   kodeBarang: string
   kodeHS: string
   namaBarang: string
+  tipeMaterial: string       // MTBEZ - Deskripsi Material Type
+  grupMaterial: string       // WGBEZ - Deskripsi Material Group
   satuan: string
   jumlah: number
-  nilaiBarang: number
+  nilaiBarang: number        // NILAIBRG (Nilai Barang Dokumen)
+  mataUangDokumen: string    // DOC_WAERS
+  mataUangLokal: string      // WAERS
+  kursDokumen: number        // WKURS
+  nilaiBarangLokal: number   // NILAIBRG * WKURS
   // plant?: string
 }
 
 // STOK
+export interface StokBatchDetail {
+  batch: string
+  jumlah: number
+  nilaiBarang: number
+}
+
 export interface StokData extends BaseData {
   startDate: string      // START_DATE
   endDate: string        // END_DATE
@@ -117,12 +135,17 @@ export interface StokData extends BaseData {
   kodeBarang: string     // MATNR
   kodeHS: string         // HSCODE
   namaBarang: string     // MAKTX
+  tipeMaterial: string   // MTBEZ - Deskripsi Material Type
+  grupMaterial: string   // WGBEZ - Deskripsi Material Group
   lokasi: string         // LGOBE
   lokasiId: string       // LGORT
   satuan: string         // MEINS
   jumlah: number         // END_STOCK_QTY
   nilaiBarang: number    // END_STOCK_VALUE
   currency: string       // WAERS
+  groupKey?: string
+  batchesCount?: number
+  batchesList?: StokBatchDetail[]
 }
 
 // MATERIAL LIST

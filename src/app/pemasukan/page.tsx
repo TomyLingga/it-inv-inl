@@ -34,9 +34,10 @@ import { fetchWithTokenRefresh } from '@/lib/fetchWithTokenRefresh'
 // ─── SAP response → PemasukanData mapper ─────────────────────────────────────
 function mapSapToPemasukan(raw: any[]): PemasukanData[] {
   return raw.map((item, idx) => {
-    // API mengembalikan angka numerik biasa, gunakan Number() langsung
     const nilaiBarang = Number(item.NILAIBRG) || 0;
     const jumlahBarang = Number(item.JUMLAH) || 0;
+    const wkurs = Number(item.WKURS) || 1;
+    const nilaiBarangLokal = nilaiBarang * wkurs;
 
     return {
       no: idx + 1,
@@ -52,9 +53,15 @@ function mapSapToPemasukan(raw: any[]): PemasukanData[] {
       kodeBarang: item.KODEBRG ?? '',
       kodeHS: item.CODEHS ?? '',
       namaBarang: item.NAMABRG ?? '',
+      tipeMaterial: item.MTBEZ ?? '',       // Deskripsi Material Type
+      grupMaterial: item.WGBEZ ?? '',       // Deskripsi Material Group
       satuan: item.SATUAN ?? '',
       jumlah: jumlahBarang,
-      nilaiBarang: nilaiBarang * 100,
+      nilaiBarang: nilaiBarang,
+      mataUangDokumen: item.DOC_WAERS ?? 'IDR',
+      mataUangLokal: item.WAERS ?? 'IDR',
+      kursDokumen: wkurs,
+      nilaiBarangLokal: nilaiBarangLokal,
     };
   });
 }
@@ -79,8 +86,37 @@ export default function PemasukanPage() {
   const [dateRange, setDateRange] = useState(getDefaultDateRange())
   const [selectedPlant, setSelectedPlant] = useState('IN01')
   const [selectedKppbc, setSelectedKppbc] = useState('KPPBC Pematangsiantar')
+  const [plantOptions, setPlantOptions] = useState<{ value: string; label: string }[]>(PLANT_OPTIONS)
+  const [kppbcOptions, setKppbcOptions] = useState<{ value: string; label: string }[]>([
+    { value: 'KPPBC Pematangsiantar', label: 'KPPBC Pematangsiantar' },
+  ])
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({})
   const [showColumnFilter, setShowColumnFilter] = useState<string | null>(null)
+
+  // Fetch Plant options dari DB API
+  useEffect(() => {
+    fetch('/api/plants')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.success && Array.isArray(json?.data) && json.data.length > 0) {
+          setPlantOptions(json.data)
+        }
+      })
+      .catch((err) => console.error('Gagal mengambil daftar plant:', err))
+  }, [])
+
+  // Fetch KPPBC options dari DB API
+  useEffect(() => {
+    fetch('/api/kppbc')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.success && Array.isArray(json?.data) && json.data.length > 0) {
+          setKppbcOptions(json.data)
+          setSelectedKppbc(json.data[0]?.value ?? 'KPPBC Pematangsiantar')
+        }
+      })
+      .catch((err) => console.error('Gagal mengambil daftar KPPBC:', err))
+  }, [])
 
   // Sort state
   const [sortConfig, setSortConfig] = useState<SortConfig<PemasukanData>>({
@@ -318,7 +354,7 @@ export default function PemasukanPage() {
               config={PEMASUKAN_CONFIG.filterConfig}
               selectedPlant={selectedPlant}
               onPlantChange={setSelectedPlant}
-              plantOptions={PLANT_OPTIONS}
+              plantOptions={plantOptions}
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
               dateRange={dateRange}
@@ -341,8 +377,9 @@ export default function PemasukanPage() {
                     onChange={(e) => setSelectedKppbc(e.target.value)}
                     className="w-full h-10 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-sm rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 font-medium cursor-pointer shadow-2xs"
                   >
-                    <option value="KPPBC Pematangsiantar">KPPBC Pematangsiantar</option>
-                    <option value="KPPBC Kuala Tanjung">KPPBC Kuala Tanjung</option>
+                    {kppbcOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </select>
                 </div>
               }

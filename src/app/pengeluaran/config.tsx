@@ -3,45 +3,51 @@
 import { PengeluaranData, ColumnConfig, PageConfig } from '@/app/shared/types'
 
 export const PENGELUARAN_COLUMNS: ColumnConfig<PengeluaranData>[] = [
-  { key: 'no', label: 'No', filterable: false, sortable: false, width: '10' },
-  { key: 'postingDate', label: 'Tanggal Keluar', filterable: true, sortable: true, width: '22' },
-  { key: 'nomorDokMaterial', label: 'Nomor Dok Material', filterable: true, sortable: true, width: '24' },
-  { key: 'jenisDokBC', label: 'Jenis Dok BC', filterable: true, sortable: true },
-  { key: 'nomorDokAju', label: 'Nomor Dok Aju', filterable: true, sortable: true },
-  { key: 'tglDokAju', label: 'Tgl Dok Aju', filterable: true, sortable: true },
-  { key: 'nomorDokPendaftaran', label: 'Nomor Dok Pendftr', filterable: true, sortable: true },
-  { key: 'tglDokPendaftaran', label: 'Tgl Dok Pendftr', filterable: true, sortable: true },
-  { key: 'nomorPo', label: 'Nomor PO', filterable: true, sortable: true },
-  { key: 'nomorSO', label: 'Nomor SO', filterable: true, sortable: true },
+  { key: 'no', label: 'NO', filterable: false, sortable: false, width: '8' },
+  { key: 'postingDate', label: 'TGL KELUAR', filterable: true, sortable: true, width: '18' },
+  { key: 'nomorDokMaterial', label: 'NO DOK GR', filterable: true, sortable: true, width: '20' },
+  { key: 'jenisDokBC', label: 'DOC BC', filterable: true, sortable: true },
+  { key: 'nomorDokAju', label: 'NO DOK AJU', filterable: true, sortable: true },
+  { key: 'tglDokAju', label: 'TGL DOK AJU', filterable: true, sortable: true },
+  { key: 'nomorDokPendaftaran', label: 'NO DOK PENDFTR', filterable: true, sortable: true },
+  { key: 'tglDokPendaftaran', label: 'TGL DOK PENDFTR', filterable: true, sortable: true },
+  { key: 'nomorPo', label: 'NO PO', filterable: true, sortable: true },
+  { key: 'nomorSO', label: 'NO SO', filterable: true, sortable: true },
   {
     key: 'penerima',
-    label: 'Penerima',
+    label: 'PENERIMA',
     filterable: true,
     sortable: true,
     render: (value) => (
       <span className="text-slate-900 dark:text-slate-100 font-medium max-w-xs truncate block">{value}</span>
     ),
   },
-  { key: 'kodeBarang', label: 'Kode Barang', filterable: true, sortable: true },
-  { key: 'kodeHS', label: 'Kode HS', filterable: true, sortable: true },
+  { key: 'kodeBarang', label: 'KODE MATERIAL', filterable: true, sortable: true },
+  { key: 'kodeHS', label: 'KODE HS', filterable: true, sortable: true },
   {
     key: 'namaBarang',
-    label: 'Nama Barang',
+    label: 'NAMA MATERIAL',
     filterable: true,
     sortable: true,
     render: (value) => (
       <span className="text-slate-900 dark:text-slate-100 font-medium max-w-[200px] sm:max-w-md truncate block">{value}</span>
     ),
   },
-  { key: 'satuan', label: 'Satuan', filterable: true, sortable: true, width: '12' },
-  { key: 'jumlah', label: 'Jumlah', filterable: false, sortable: true, width: '15' },
-  { key: 'nilaiBarang', label: 'Nilai Barang', filterable: false, sortable: true, width: '28' },
+  { key: 'tipeMaterial', label: 'TIPE MATERIAL', filterable: true, sortable: true },
+  { key: 'grupMaterial', label: 'GRUP MATERIAL', filterable: true, sortable: true },
+  { key: 'satuan', label: 'SATUAN', filterable: true, sortable: true, width: '10' },
+  { key: 'jumlah', label: 'JUMLAH', filterable: false, sortable: true, width: '15' },
+  { key: 'mataUangDokumen', label: 'MATA UANG DOK', filterable: true, sortable: true },
+  { key: 'nilaiBarang', label: 'NILAI MATERIAL', filterable: false, sortable: true, width: '22' },
+  { key: 'kursDokumen', label: 'KURS DOK', filterable: false, sortable: true },
+  { key: 'mataUangLokal', label: 'MATA UANG LOKAL', filterable: true, sortable: true },
+  { key: 'nilaiBarangLokal', label: 'NILAI MATERIAL (LOKAL)', filterable: false, sortable: true, width: '24' },
 ]
 
 export const PENGELUARAN_CONFIG: PageConfig<PengeluaranData> = {
-  title: 'Pengeluaran Barang',
+  title: 'Pengeluaran Material',
   icon: 'ArrowUpFromLine',
-  description: 'Kelola data barang keluar dari gudang',
+  description: 'Monitor laporan pengeluaran material per periode',
   columns: PENGELUARAN_COLUMNS,
   filterConfig: {
     showGlobalSearch: true,
@@ -51,8 +57,8 @@ export const PENGELUARAN_CONFIG: PageConfig<PengeluaranData> = {
     dateLabel: 'Filter Tanggal Keluar',
   },
   exportConfig: {
-    filename: 'Pengeluaran_Barang',
-    title: 'LAPORAN PENGELUARAN BARANG',
+    filename: 'Pengeluaran_Material',
+    title: 'LAPORAN PENGELUARAN MATERIAL',
     formats: ['excel', 'pdf'],
   },
   tableConfig: {
@@ -66,7 +72,12 @@ export const PENGELUARAN_CONFIG: PageConfig<PengeluaranData> = {
       {
         column: 'nilaiBarang',
         type: 'sum',
-        label: 'Total Nilai',
+        label: 'Total Nilai Dokumen',
+      },
+      {
+        column: 'nilaiBarangLokal',
+        type: 'sum',
+        label: 'Total Nilai Lokal',
       },
     ],
     emptyStateMessage: 'Tidak ada data pengeluaran ditemukan',

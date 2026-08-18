@@ -20,9 +20,7 @@ export const exportToExcel = <T extends BaseData>(
     const exportRow: Record<string, any> = {}
     columns.forEach(col => {
       const value = row[col.key]
-      if (typeof value === 'number' && col.key.toString().includes('nilai')) {
-        exportRow[col.label] = `Rp ${value.toLocaleString('id-ID')}`
-      } else if (typeof value === 'number') {
+      if (typeof value === 'number') {
         exportRow[col.label] = value
       } else {
         exportRow[col.label] = value || ''
@@ -83,9 +81,7 @@ export const exportToPDF = <T extends BaseData>(
   const body = data.map(row =>
     columns.map(col => {
       const value = row[col.key]
-      if (typeof value === 'number' && col.key.toString().includes('nilai')) {
-        return `Rp ${value.toLocaleString('id-ID')}`
-      } else if (typeof value === 'number') {
+      if (typeof value === 'number') {
         return value.toLocaleString('id-ID')
       } else {
         return value?.toString() || ''
@@ -94,24 +90,13 @@ export const exportToPDF = <T extends BaseData>(
   )
 
   // ─── Footer row: tampilkan total jumlah DAN nilai ─────────────────────────
-  // Label "TOTAL" di kolom ke-2 (idx 1), kolom lain diisi total jika numerik
   const footerRow = columns.map((col, idx) => {
     if (idx === 1) return 'TOTAL'
 
     const key = col.key as string
     if (numericTotals[key] === undefined) return ''
 
-    if (key.includes('nilai')) {
-      // Nilai barang → format currency
-      return `Rp ${numericTotals[key].toLocaleString('id-ID')}`
-    }
-
-    if (key.includes('jumlah')) {
-      // Jumlah → angka biasa dengan separator
-      return numericTotals[key].toLocaleString('id-ID')
-    }
-
-    return ''
+    return numericTotals[key].toLocaleString('id-ID')
   })
 
   // ─── Column widths ────────────────────────────────────────────────────────

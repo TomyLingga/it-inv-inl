@@ -28,13 +28,13 @@ export const DEFAULT_SORT_CONFIG = {
 }
 
 export const EXPORT_FILENAME_PREFIX = {
-  pemasukan: 'Pemasukan_Barang',
-  pengeluaran: 'Pengeluaran_Barang',
-  stok: 'Stok_Barang'
+  pemasukan: 'Pemasukan_Material',
+  pengeluaran: 'Pengeluaran_Material',
+  stok: 'Stok_Material'
 }
 
 export const EXPORT_TITLE = {
-  pemasukan: 'LAPORAN PEMASUKAN BARANG',
-  pengeluaran: 'LAPORAN PENGELUARAN BARANG',
-  stok: 'LAPORAN STOK BARANG'
+  pemasukan: 'LAPORAN PEMASUKAN MATERIAL',
+  pengeluaran: 'LAPORAN PENGELUARAN MATERIAL',
+  stok: 'LAPORAN STOK MATERIAL'
 }

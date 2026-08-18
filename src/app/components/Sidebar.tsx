@@ -25,6 +25,8 @@ import {
   PanelLeft,
   Sun,
   Moon,
+  Factory,
+  Building2,
 } from 'lucide-react'
 
 import Topbar from '@/app/components/Topbar'
@@ -247,6 +249,54 @@ function SidebarPanel() {
                   }`}
                 />
                 <span>PO List</span>
+              </Link>
+
+              <Link
+                href="/setting/plant-list"
+                onClick={() => {
+                  if (window.innerWidth < 1024) toggleSidebar()
+                }}
+                className={`
+                  flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all duration-200 group text-[13px] font-semibold
+                  ${
+                    pathname === '/setting/plant-list'
+                      ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+                      : 'text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700/70'
+                  }
+                `}
+              >
+                <Factory
+                  className={`w-4 h-4 shrink-0 ${
+                    pathname === '/setting/plant-list'
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-slate-400 dark:text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200'
+                  }`}
+                />
+                <span>Plant List</span>
+              </Link>
+
+              <Link
+                href="/setting/kppbc-list"
+                onClick={() => {
+                  if (window.innerWidth < 1024) toggleSidebar()
+                }}
+                className={`
+                  flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all duration-200 group text-[13px] font-semibold
+                  ${
+                    pathname === '/setting/kppbc-list'
+                      ? 'text-blue-600 dark:text-blue-400 font-bold'
+                      : 'text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700/70'
+                  }
+                `}
+              >
+                <Building2
+                  className={`w-4 h-4 shrink-0 ${
+                    pathname === '/setting/kppbc-list'
+                      ? 'text-blue-600 dark:text-blue-400'
+                      : 'text-slate-400 dark:text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200'
+                  }`}
+                />
+                <span>KPPBC List</span>
               </Link>
             </div>
           )}

@@ -38,3 +38,6 @@ next-env.d.ts
 *.postman_collection.json
 *.postman_environment.json
 
+# graphify & agents skill
+.agents/
+graphify-out/

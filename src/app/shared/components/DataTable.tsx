@@ -12,7 +12,7 @@ import {
   RotateCcw,
   RefreshCw,
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { BaseData, ColumnConfig, SortConfig, TableConfig } from '../types'
 import { calculateTotal, formatCurrency } from '../utils/filterUtils'
 import { Spinner } from '@/app/components/ui/spinner'
@@ -37,6 +37,8 @@ interface DataTableProps<T extends BaseData> {
   pageSize?: number
 
   isLoading?: boolean
+
+  renderExpandedRow?: (row: T) => React.ReactNode
 }
 
 export default function DataTable<T extends BaseData>({
@@ -53,9 +55,11 @@ export default function DataTable<T extends BaseData>({
   tableConfig,
   pageSize = 25,
   isLoading = false,
+  renderExpandedRow,
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(pageSize)
+  const [expandedRowKeys, setExpandedRowKeys] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     setCurrentPage(1)
@@ -79,8 +83,6 @@ export default function DataTable<T extends BaseData>({
   }
 
   const formatFooterValue = (colKey: string, value: number): string => {
-    const key = colKey.toLowerCase()
-    if (key.includes('nilai')) return formatCurrency(value)
     return value.toLocaleString('id-ID')
   }
 
@@ -147,86 +149,101 @@ export default function DataTable<T extends BaseData>({
       <div className="overflow-x-auto">
         <table className="w-full">
           {/* HEADER */}
-          <thead className="bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700">
+          <thead className="bg-slate-900 dark:bg-slate-950 text-slate-200 border-b-2 border-slate-700/80">
             <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key as string}
-                  className={`px-3 lg:px-4 py-3.5 text-left text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider border-r border-slate-200 dark:border-slate-700/60 last:border-r-0 ${col.sortable ? 'cursor-pointer hover:bg-slate-200/70 dark:hover:bg-slate-700' : ''
+              {columns.map((col) => {
+                const isSorted = sortConfig.key === col.key
+                const isFiltered = Boolean(columnFilters[col.key as string])
+
+                return (
+                  <th
+                    key={col.key as string}
+                    className={`px-3 lg:px-4 py-3.5 text-left text-[11px] sm:text-xs font-extrabold text-slate-200 uppercase tracking-wider border-r border-slate-800/80 last:border-r-0 whitespace-nowrap select-none ${
+                      col.sortable ? 'cursor-pointer hover:bg-slate-800/90 transition-colors' : ''
                     } ${col.className || ''}`}
-                  onClick={() => col.sortable && onSort(col.key)}
-                >
-                  <div className="flex items-center justify-between space-x-1.5">
-                    <span className="truncate">{col.label}</span>
+                    onClick={() => col.sortable && onSort(col.key)}
+                  >
+                    <div className="flex items-center justify-between space-x-2">
+                      <span className="truncate">{col.label}</span>
 
-                    {col.sortable && (
-                      <div className="flex items-center space-x-0.5 shrink-0">
-                        <ArrowUpDown
-                          className={`w-3.5 h-3.5 ${sortConfig.key === col.key
-                              ? 'text-blue-600 dark:text-blue-400 font-bold'
-                              : 'text-slate-400 dark:text-slate-500'
-                            }`}
-                        />
-                        {sortConfig.key === col.key && (
-                          <span className="text-xs text-blue-600 dark:text-blue-400 font-bold">
-                            {sortConfig.direction === 'desc' ? '↓' : '↑'}
-                          </span>
+                      <div className="flex items-center space-x-1 shrink-0">
+                        {col.sortable && (
+                          <div className="flex items-center">
+                            {isSorted ? (
+                              <span className="bg-blue-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded flex items-center space-x-0.5 shadow-xs">
+                                <span>{sortConfig.direction === 'desc' ? '▼' : '▲'}</span>
+                              </span>
+                            ) : (
+                              <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 hover:text-slate-200 transition-colors" />
+                            )}
+                          </div>
                         )}
-                      </div>
-                    )}
 
-                    {col.filterable && onColumnFilter && (
-                      <div className="relative shrink-0 ml-1">
-                        <Filter
-                          className={`w-3.5 h-3.5 cursor-pointer transition-colors ${columnFilters[col.key as string]
-                              ? 'text-blue-600 dark:text-blue-400'
-                              : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                            }`}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setShowColumnFilter?.(
-                              showColumnFilter === col.key ? null : (col.key as string)
-                            )
-                          }}
-                        />
+                        {col.filterable && onColumnFilter && (
+                          <div className="relative shrink-0">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setShowColumnFilter?.(
+                                  showColumnFilter === col.key ? null : (col.key as string)
+                                )
+                              }}
+                              className={`p-1 rounded-md transition-colors ${
+                                isFiltered
+                                  ? 'bg-blue-600 text-white'
+                                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                              }`}
+                              title={`Filter ${col.label}`}
+                            >
+                              <Filter className="w-3.5 h-3.5" />
+                              {isFiltered && (
+                                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border border-slate-900" />
+                              )}
+                            </button>
 
-                        {/* Column Filter Popover */}
-                        {showColumnFilter === col.key && (
-                          <div className="absolute top-7 right-0 z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-3 w-56 sm:w-64">
-                            <div className="mb-2">
-                              <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                                Filter {col.label}
-                              </label>
-                            </div>
-                            <input
-                              type="text"
-                              placeholder={`Cari ${col.label.toLowerCase()}...`}
-                              value={columnFilters[col.key as string] || ''}
-                              onChange={(e) => onColumnFilter(col.key as string, e.target.value)}
-                              className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                              autoFocus
-                            />
-                            <div className="mt-2.5 flex justify-end space-x-2">
-                              <button
-                                onClick={() => onClearColumnFilter?.(col.key as string)}
-                                className="px-2.5 py-1 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                            {/* Column Filter Popover */}
+                            {showColumnFilter === col.key && (
+                              <div
+                                className="absolute top-8 right-0 z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl p-3 w-56 sm:w-64"
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                Clear
-                              </button>
-                              <button
-                                onClick={() => setShowColumnFilter?.(null)}
-                                className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-xs"
-                              >
-                                OK
-                              </button>
-                            </div>
+                                <div className="mb-2">
+                                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                    Filter {col.label}
+                                  </label>
+                                </div>
+                                <input
+                                  type="text"
+                                  placeholder={`Cari ${col.label.toLowerCase()}...`}
+                                  value={columnFilters[col.key as string] || ''}
+                                  onChange={(e) => onColumnFilter(col.key as string, e.target.value)}
+                                  className="w-full px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                  autoFocus
+                                />
+                                <div className="mt-2.5 flex justify-end space-x-2">
+                                  <button
+                                    onClick={() => onClearColumnFilter?.(col.key as string)}
+                                    className="px-2.5 py-1 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                                  >
+                                    Clear
+                                  </button>
+                                  <button
+                                    onClick={() => setShowColumnFilter?.(null)}
+                                    className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-xs"
+                                  >
+                                    OK
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                </th>
-              ))}
+                    </div>
+                  </th>
+                )
+              })}
             </tr>
           </thead>
 
@@ -234,73 +251,130 @@ export default function DataTable<T extends BaseData>({
           <tbody className="divide-y divide-slate-200 dark:divide-slate-800/80 bg-white dark:bg-slate-900">
             {pageData.map((row, idx) => {
               const isEvenRow = (idx + 1) % 2 === 0
-              return (
-                <tr
-                  key={`${row.no}-${idx}`}
-                  className={`transition-colors duration-150 ${isEvenRow
-                      ? 'bg-slate-50/80 dark:bg-slate-800/65'
-                      : 'bg-white dark:bg-slate-900'
-                    } hover:bg-blue-50/80 dark:hover:bg-slate-700/70`}
-                >
-                  {columns.map((col) => {
-                    const value = row[col.key]
+              const rowId = (row as any).groupKey || (row as any).id || `${row.no}-${idx}`
+              const isExpanded = Boolean(expandedRowKeys[rowId])
+              const hasExpandableContent = renderExpandedRow && ((row as any).batchesCount > 1 || (row as any).batchesList?.length > 1)
 
-                    if (col.render) {
+              return (
+                <Fragment key={`${rowId}-${idx}`}>
+                  <tr
+                    className={`transition-colors duration-150 ${
+                      isEvenRow
+                        ? 'bg-slate-50/70 dark:bg-slate-800/40'
+                        : 'bg-white dark:bg-slate-900'
+                    } ${isExpanded ? 'bg-blue-50/90 dark:bg-slate-800/90' : ''} hover:bg-blue-50/80 dark:hover:bg-slate-800/80`}
+                  >
+                    {columns.map((col) => {
+                      const value = row[col.key]
+
+                      if (col.render) {
+                        return (
+                          <td
+                            key={col.key as string}
+                            className={`px-3 lg:px-4 py-3 text-xs sm:text-sm border-r border-slate-100 dark:border-slate-800/60 last:border-r-0 ${col.className || ''}`}
+                          >
+                            {col.render(value, row)}
+                          </td>
+                        )
+                      }
+
+                      let displayValue: React.ReactNode = value
+                      let cellClass =
+                        'px-3 lg:px-4 py-3 text-xs sm:text-sm text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/60 last:border-r-0'
+
+                      if (col.key === 'no') {
+                        cellClass =
+                          'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 border-r border-slate-100 dark:border-slate-800/60 text-center'
+                        
+                        if (hasExpandableContent) {
+                          displayValue = (
+                            <div className="flex items-center justify-center space-x-1.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setExpandedRowKeys((prev) => ({ ...prev, [rowId]: !prev[rowId] }))
+                                }}
+                                className={`p-1 rounded-md transition-all shadow-2xs ${
+                                  isExpanded
+                                    ? 'bg-blue-600 text-white font-bold rotate-90'
+                                    : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white'
+                                }`}
+                                title={isExpanded ? 'Sembunyikan detail batch' : 'Lihat detail batch'}
+                              >
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </button>
+                              <span>{value}</span>
+                            </div>
+                          )
+                        }
+                      } else if (col.key === 'postingDate') {
+                        cellClass =
+                          'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm border-r border-slate-100 dark:border-slate-800/60'
+                        displayValue = (
+                          <span className="font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-900/40">
+                            {value}
+                          </span>
+                        )
+                      } else if (col.key === 'jenisDokBC') {
+                        cellClass =
+                          'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm border-r border-slate-100 dark:border-slate-800/60'
+                        displayValue = (
+                          <span className="font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded-md border border-purple-200 dark:border-purple-900/40 text-xs">
+                            {value}
+                          </span>
+                        )
+                      } else if (col.key === 'mataUangDokumen' || col.key === 'mataUangLokal' || col.key === 'currency') {
+                        cellClass =
+                          'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm border-r border-slate-100 dark:border-slate-800/60 text-center'
+                        displayValue = (
+                          <span className="font-semibold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs inline-block">
+                            {value}
+                          </span>
+                        )
+                      } else if (
+                        typeof value === 'number' &&
+                        col.key.toString().toLowerCase().includes('nilai')
+                      ) {
+                        cellClass =
+                          'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white border-r border-slate-100 dark:border-slate-800/60 text-right'
+                        displayValue = value.toLocaleString('id-ID')
+                      } else if (
+                        typeof value === 'number' &&
+                        col.key.toString().includes('jumlah')
+                      ) {
+                        cellClass =
+                          'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 border-r border-slate-100 dark:border-slate-800/60 text-right'
+                        displayValue = value.toLocaleString('id-ID')
+                      } else if (col.key === 'kursDokumen' && typeof value === 'number') {
+                        cellClass =
+                          'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/60 text-right'
+                        displayValue = value.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 5 })
+                      }
+
                       return (
-                        <td
-                          key={col.key as string}
-                          className={`px-3 lg:px-4 py-3 text-xs sm:text-sm border-r border-slate-100 dark:border-slate-800/60 last:border-r-0 ${col.className || ''}`}
-                        >
-                          {col.render(value, row)}
+                        <td key={col.key as string} className={cellClass}>
+                          {displayValue}
                         </td>
                       )
-                    }
+                    })}
+                  </tr>
 
-                    let displayValue: React.ReactNode = value
-                    let cellClass =
-                      'px-3 lg:px-4 py-3 text-xs sm:text-sm text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/60 last:border-r-0'
-
-                    if (col.key === 'no') {
-                      cellClass =
-                        'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 border-r border-slate-100 dark:border-slate-800/60'
-                    } else if (col.key === 'postingDate') {
-                      cellClass =
-                        'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm border-r border-slate-100 dark:border-slate-800/60'
-                      displayValue = (
-                        <span className="font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-900/40">
-                          {value}
-                        </span>
-                      )
-                    } else if (
-                      typeof value === 'number' &&
-                      col.key.toString().includes('nilai')
-                    ) {
-                      cellClass =
-                        'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white border-r border-slate-100 dark:border-slate-800/60'
-                      displayValue = formatCurrency(value)
-                    } else if (
-                      typeof value === 'number' &&
-                      col.key.toString().includes('jumlah')
-                    ) {
-                      cellClass =
-                        'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 border-r border-slate-100 dark:border-slate-800/60'
-                      displayValue = value.toLocaleString('id-ID')
-                    }
-
-                    return (
-                      <td key={col.key as string} className={cellClass}>
-                        {displayValue}
+                  {renderExpandedRow && isExpanded && (
+                    <tr className="bg-slate-900/90 dark:bg-slate-950/95">
+                      <td colSpan={columns.length} className="p-0 border-b-2 border-indigo-500/50">
+                        {renderExpandedRow(row)}
                       </td>
-                    )
-                  })}
-                </tr>
+                    </tr>
+                  )}
+                </Fragment>
               )
             })}
           </tbody>
 
           {/* FOOTER */}
           {tableConfig?.showFooter && tableConfig?.footerCalculations?.length ? (
-            <tfoot className="bg-slate-100 dark:bg-slate-800 border-t-2 border-slate-300 dark:border-slate-700">
+            <tfoot className="bg-slate-900 dark:bg-slate-950 text-white border-t-2 border-slate-700">
               <tr>
                 {columns.map((col, colIdx) => {
                   const calculation = tableConfig.footerCalculations?.find(
@@ -311,7 +385,7 @@ export default function DataTable<T extends BaseData>({
                     return (
                       <td
                         key={col.key as string}
-                        className="px-4 py-3 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider"
+                        className="px-4 py-3 text-xs font-black text-white uppercase tracking-wider text-center"
                       >
                         TOTAL
                       </td>
@@ -327,13 +401,13 @@ export default function DataTable<T extends BaseData>({
 
                   const isNilai = (col.key as string).toLowerCase().includes('nilai')
                   const textClass = isNilai
-                    ? 'text-emerald-700 dark:text-emerald-400'
-                    : 'text-blue-700 dark:text-blue-400'
+                    ? 'text-emerald-400 font-extrabold text-right'
+                    : 'text-blue-300 font-bold text-right'
 
                   return (
                     <td
                       key={col.key as string}
-                      className={`px-3 lg:px-4 py-3 text-xs sm:text-sm font-black whitespace-nowrap ${textClass}`}
+                      className={`px-3 lg:px-4 py-3 text-xs sm:text-sm whitespace-nowrap ${textClass}`}
                     >
                       {formatted}
                     </td>
