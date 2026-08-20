@@ -31,6 +31,7 @@ interface FilterSectionProps {
 
   // Custom filters
   customFilters?: React.ReactNode
+  customFiltersSpan?: number
 
   // Config
   config?: FilterConfig
@@ -53,6 +54,7 @@ export default function FilterSection({
   dateLabel = 'Filter Tanggal',
 
   customFilters,
+  customFiltersSpan = 4,
   config,
 }: FilterSectionProps) {
   const finalDateLabel = config?.dateLabel || dateLabel || 'Filter Tanggal'
@@ -68,14 +70,35 @@ export default function FilterSection({
     onDateChange?.(field, value)
   }
 
+  // Calculate dynamic column spans based on customFilters presence and size
+  let plantSpanClass = "sm:col-span-1 lg:col-span-3"
+  let dateSpanClass = "sm:col-span-1 lg:col-span-9"
+  let customSpanClass = "sm:col-span-1 lg:col-span-4"
+
+  if (customFilters) {
+    if (customFiltersSpan === 6) {
+      plantSpanClass = "sm:col-span-1 lg:col-span-2"
+      dateSpanClass = "sm:col-span-1 lg:col-span-4"
+      customSpanClass = "sm:col-span-1 lg:col-span-6"
+    } else if (customFiltersSpan === 5) {
+      plantSpanClass = "sm:col-span-1 lg:col-span-2"
+      dateSpanClass = "sm:col-span-1 lg:col-span-5"
+      customSpanClass = "sm:col-span-1 lg:col-span-5"
+    } else {
+      plantSpanClass = "sm:col-span-1 lg:col-span-3"
+      dateSpanClass = "sm:col-span-1 lg:col-span-5"
+      customSpanClass = "sm:col-span-1 lg:col-span-4"
+    }
+  }
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4 sm:p-6 border border-slate-200 dark:border-slate-800 transition-colors duration-200 space-y-4">
       {/* Row 1: Filters (Plant, Date Range, & KPPBC / Custom Filters) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4 items-end">
         {/* Kolom 1: Plant Filter */}
         {finalShowPlant && plantOptions.length > 0 && (
-          <div className="sm:col-span-1 lg:col-span-3">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+          <div className={plantSpanClass}>
+            <label className="flex items-center h-5 text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 gap-1.5">
               <Factory className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Plant</span>
             </label>
@@ -95,7 +118,7 @@ export default function FilterSection({
 
         {/* Kolom 2: Date Filter */}
         {finalShowDate && dateRange && (
-          <div className={customFilters ? "sm:col-span-1 lg:col-span-5" : "sm:col-span-1 lg:col-span-9"}>
+          <div className={dateSpanClass}>
             <DatePickerWithRange
               label={finalDateLabel}
               dateRange={dateRange}
@@ -106,7 +129,7 @@ export default function FilterSection({
 
         {/* Kolom 3: Custom Filters (e.g. KPPBC Select) */}
         {customFilters && (
-          <div className="sm:col-span-1 lg:col-span-4">{customFilters}</div>
+          <div className={customSpanClass}>{customFilters}</div>
         )}
       </div>
 

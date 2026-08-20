@@ -638,24 +638,68 @@ export default function MutasiPage() {
     }
   }, [fetchData, isClient, isAuthenticated, csrfToken])
 
-  // ─── Derive unique facility material options from data ─────────────────────
+  // ─── Fetch unique facility material options from backend and SAP ───────────
   useEffect(() => {
-    const seen = new Set<string>()
-    const opts: { value: string; label: string }[] = []
-    data.forEach((item) => {
-      if (!seen.has(item.kodeBarang)) {
-        seen.add(item.kodeBarang)
-        const code = item.kodeBarang.replace(/^0+/, '') // strip leading zeros for display
-        opts.push({
-          value: item.kodeBarang,
-          label: item.namaBarang ? `${code} – ${item.namaBarang}` : code,
+    if (!isAuthenticated || !csrfToken) return
+
+    const loadMaterialOptions = async () => {
+      try {
+        // 1. Fetch facility map from DB
+        const facRes = await fetch('/api/material-facility')
+        const facJson = await facRes.json()
+        const localFacilities = facJson?.list || []
+        
+        // Filter codes that are active facilities
+        const activeFacilityCodes = new Set(
+          localFacilities
+            .filter((m: any) => m.is_facility)
+            .map((m: any) => normalizeCode(m.matnr))
+        )
+
+        if (activeFacilityCodes.size === 0) {
+          setMaterialOptions([])
+          return
+        }
+
+        // 2. Fetch full material descriptions from SAP
+        const sapRes = await fetch('/api/setting/material-list', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-csrf-token': csrfToken,
+          },
+          body: JSON.stringify({
+            I_BEWFLG: 'X',
+            I_WERKS: [{ SIGN: 'I', OPTION: 'EQ', LOW: 'IN01', HIGH: '' }],
+            I_MATNR: [{ SIGN: 'I', OPTION: 'BT', LOW: '000000000000000001', HIGH: '999999999999999999' }]
+          })
         })
+        const sapMaterials = await sapRes.json()
+
+        if (Array.isArray(sapMaterials)) {
+          const opts: { value: string; label: string }[] = []
+          sapMaterials.forEach((item) => {
+            const rawMatnr = item.MATNR ?? ''
+            const normMatnr = normalizeCode(rawMatnr)
+            if (activeFacilityCodes.has(normMatnr)) {
+              opts.push({
+                value: rawMatnr,
+                label: `${normMatnr} – ${item.MAKTX || ''}`,
+              })
+            }
+          })
+          
+          // Sort by label
+          opts.sort((a, b) => a.label.localeCompare(b.label))
+          setMaterialOptions(opts)
+        }
+      } catch (err) {
+        console.error('Gagal memuat opsi material fasilitas:', err)
       }
-    })
-    // Sort by label
-    opts.sort((a, b) => a.label.localeCompare(b.label))
-    setMaterialOptions(opts)
-  }, [data])
+    }
+
+    loadMaterialOptions()
+  }, [isAuthenticated, csrfToken])
 
   // ─── Filter & Sort Processing ──────────────────────────────────────────────
   useEffect(() => {
@@ -894,11 +938,12 @@ export default function MutasiPage() {
                   setShowExportModal(true)
                 }}
                 dataCount={filteredData.length}
+                customFiltersSpan={6}
                 customFilters={
-                  <div className="flex flex-col gap-3 w-full">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 w-full">
                     {/* Filter: Arah Mutasi */}
                     <div className="flex flex-col">
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                      <label className="flex items-center h-5 text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 gap-1.5">
                         <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                         <span>Arah Mutasi</span>
                       </label>
@@ -915,7 +960,7 @@ export default function MutasiPage() {
 
                     {/* Filter: Material (hanya fasilitas kepabeanan) */}
                     <div className="flex flex-col">
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                      <label className="flex items-center h-5 text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 gap-1.5">
                         <Boxes className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                         <span>Material</span>
                         <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-100 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-900/30">

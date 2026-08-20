@@ -87,7 +87,7 @@ export function DatePickerWithRange({
   return (
     <Field className={className || "w-full"}>
       {label && (
-        <FieldLabel htmlFor="date-picker-range" className="flex items-center gap-1.5">
+        <FieldLabel htmlFor="date-picker-range" className="flex items-center h-5 gap-1.5">
           <CalendarIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
           <span>{label}</span>
         </FieldLabel>
