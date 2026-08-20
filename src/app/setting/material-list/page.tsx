@@ -393,7 +393,9 @@ export default function MaterialListPage() {
             {/* Header Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
               <div className="flex items-center gap-3.5">
-                <Boxes className="w-8 h-8 sm:w-9 sm:h-9 text-blue-600 dark:text-blue-400 shrink-0" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 shadow-lg shadow-blue-500/25">
+                  <Boxes className="w-6 h-6 text-white shrink-0" />
+                </div>
                 <div>
                   <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                     Material List & Fasilitas Kepabeanan

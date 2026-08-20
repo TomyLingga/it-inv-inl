@@ -39,6 +39,7 @@ interface DataTableProps<T extends BaseData> {
   isLoading?: boolean
 
   renderExpandedRow?: (row: T) => React.ReactNode
+  onRowClick?: (row: T) => void
 }
 
 export default function DataTable<T extends BaseData>({
@@ -56,6 +57,7 @@ export default function DataTable<T extends BaseData>({
   pageSize = 25,
   isLoading = false,
   renderExpandedRow,
+  onRowClick,
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(pageSize)
@@ -258,11 +260,14 @@ export default function DataTable<T extends BaseData>({
               return (
                 <Fragment key={`${rowId}-${idx}`}>
                   <tr
+                    onClick={() => onRowClick && onRowClick(row)}
                     className={`transition-colors duration-150 ${
                       isEvenRow
                         ? 'bg-slate-50/70 dark:bg-slate-800/40'
                         : 'bg-white dark:bg-slate-900'
-                    } ${isExpanded ? 'bg-blue-50/90 dark:bg-slate-800/90' : ''} hover:bg-blue-50/80 dark:hover:bg-slate-800/80`}
+                    } ${isExpanded ? 'bg-blue-50/90 dark:bg-slate-800/90' : ''} ${
+                      onRowClick ? 'cursor-pointer' : ''
+                    } hover:bg-blue-50/80 dark:hover:bg-slate-800/80`}
                   >
                     {columns.map((col) => {
                       const value = row[col.key]

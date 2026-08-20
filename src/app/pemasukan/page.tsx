@@ -1,11 +1,11 @@
 // src/app/pemasukan/page.tsx
 
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/components/useAuth'
 import Sidebar, { Topbar } from '@/app/components/Sidebar'
-import { ArrowDownToLine, AlertCircle, Loader2, Building2 } from 'lucide-react'
+import { ArrowDownToLine, AlertCircle, Building2, FileCheck2, RefreshCw, TrendingDown } from 'lucide-react'
 
 // Shared Components
 import FilterSection from '@/app/shared/components/FilterSection'
@@ -111,8 +111,16 @@ export default function PemasukanPage() {
       .then((res) => res.json())
       .then((json) => {
         if (json?.success && Array.isArray(json?.data) && json.data.length > 0) {
-          setKppbcOptions(json.data)
-          setSelectedKppbc(json.data[0]?.value ?? 'KPPBC Pematangsiantar')
+          const opts = [...json.data]
+          opts.push({ value: 'Belum Ditentukan', label: 'Belum Ditentukan (Belum Dipetakan)' })
+          setKppbcOptions(opts)
+
+          const hasPms = json.data.some((opt: any) => opt.value === 'KPPBC Pematangsiantar')
+          if (hasPms) {
+            setSelectedKppbc('KPPBC Pematangsiantar')
+          } else {
+            setSelectedKppbc(json.data[0]?.value ?? 'KPPBC Pematangsiantar')
+          }
         }
       })
       .catch((err) => console.error('Gagal mengambil daftar KPPBC:', err))
@@ -294,10 +302,20 @@ export default function PemasukanPage() {
     setShowColumnFilter(null)
   }
 
-  // ─── Loading & Auth ───────────────────────────────────────────────────────
   const isPageLoading = !isClient || loading || (isFetching && data.length === 0)
 
   if (isClient && !loading && !isAuthenticated) return null
+
+  // ─── KPI Calculations ──────────────────────────────────────────────────────
+  const kpiStats = useMemo(() => {
+    let totalQty = 0
+    let totalNilai = 0
+    filteredData.forEach((item) => {
+      totalQty += Number(item.jumlah) || 0
+      totalNilai += Number(item.nilaiBarangLokal) || 0
+    })
+    return { totalDokumen: filteredData.length, totalQty, totalNilai }
+  }, [filteredData])
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
@@ -309,10 +327,13 @@ export default function PemasukanPage() {
         ) : (
           <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
           <div className="max-w-full space-y-6">
+
             {/* Header Section */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
               <div className="flex items-center gap-3.5">
-                <ArrowDownToLine className="w-8 h-8 sm:w-9 sm:h-9 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-600 shadow-lg shadow-emerald-500/25">
+                  <ArrowDownToLine className="w-6 h-6 text-white" />
+                </div>
                 <div>
                   <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                     {PEMASUKAN_CONFIG.title}
@@ -322,12 +343,60 @@ export default function PemasukanPage() {
                   </p>
                 </div>
               </div>
-              <div className="text-center sm:text-center">
-                <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                  {isFetching ? '...' : filteredData.length}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={fetchData}
+                  disabled={isFetching}
+                  title="Refresh data dari SAP"
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </button>
+                <div className="text-right">
+                  <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                    {isFetching ? <RefreshCw className="w-6 h-6 animate-spin inline" /> : filteredData.length}
+                  </div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+                    dari {data.length} total data
+                  </div>
                 </div>
-                <div className="text-xs text-slate-400 dark:text-slate-500 font-medium">
-                  dari {data.length} total data
+              </div>
+            </div>
+
+            {/* KPI Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/40 shrink-0">
+                  <FileCheck2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">Total Dokumen</span>
+                  <p className="text-xl font-extrabold text-slate-900 dark:text-white">
+                    {isFetching ? '...' : kpiStats.totalDokumen} <span className="text-xs font-normal text-slate-400">dokumen</span>
+                  </p>
+                </div>
+              </div>
+              <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900/40 shrink-0">
+                  <TrendingDown className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">Total Kuantitas Masuk</span>
+                  <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">
+                    +{isFetching ? '...' : kpiStats.totalQty.toLocaleString('id-ID', { maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+              <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/40 shrink-0">
+                  <ArrowDownToLine className="w-6 h-6" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">Total Nilai (IDR)</span>
+                  <p className="text-base font-extrabold text-slate-900 dark:text-white truncate">
+                    Rp {isFetching ? '...' : kpiStats.totalNilai.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                  </p>
                 </div>
               </div>
             </div>
@@ -341,13 +410,12 @@ export default function PemasukanPage() {
                 </div>
                 <button
                   onClick={fetchData}
-                  className="text-xs font-bold text-rose-600 dark:text-rose-400 underline hover:text-rose-800 dark:hover:text-rose-200 ml-4 shrink-0"
+                  className="text-xs font-bold text-rose-600 dark:text-rose-400 underline hover:text-rose-800 dark:hover:text-rose-200 ml-4 shrink-0 cursor-pointer"
                 >
                   Coba lagi
                 </button>
               </div>
             )}
-
 
             {/* Filters */}
             <FilterSection
@@ -398,7 +466,7 @@ export default function PemasukanPage() {
                 onClearColumnFilter={clearColumnFilter}
                 onClearAll={clearAllFilters}
                 columns={PEMASUKAN_CONFIG.columns}
-                plantOptions={PLANT_OPTIONS}
+                plantOptions={plantOptions}
                 showExportButton={PEMASUKAN_CONFIG.filterConfig.showExportButton}
                 onExportClick={() => {
                   setExportFormat('excel')

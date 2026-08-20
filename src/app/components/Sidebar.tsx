@@ -28,6 +28,7 @@ import {
   Factory,
   Building2,
   FolderOpen,
+  ArrowLeftRight,
 } from 'lucide-react'
 
 import Topbar from '@/app/components/Topbar'
@@ -59,6 +60,7 @@ function SidebarPanel() {
     { href: '/pemasukan', label: 'Pemasukan', icon: ArrowDownToLine },
     { href: '/pengeluaran', label: 'Pengeluaran', icon: ArrowUpFromLine },
     { href: '/stok', label: 'Stok', icon: Package },
+    { href: '/mutasi', label: 'Mutasi', icon: ArrowLeftRight },
     { href: '/dokumen', label: 'Dokumen', icon: FolderOpen },
   ]
 

@@ -395,7 +395,9 @@ export default function StokPage() {
             {/* Header Section */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
               <div className="flex items-center gap-3.5">
-                <Package className="w-8 h-8 sm:w-9 sm:h-9 text-blue-600 dark:text-blue-400 shrink-0" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 shadow-lg shadow-blue-500/25">
+                  <Package className="w-6 h-6 text-white" />
+                </div>
                 <div>
                   <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                     {STOK_CONFIG.title}
@@ -405,12 +407,23 @@ export default function StokPage() {
                   </p>
                 </div>
               </div>
-              <div className="text-center sm:text-center">
-                <div className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400">
-                  {isFetching ? '...' : filteredData.length}
-                </div>
-                <div className="text-xs text-slate-400 dark:text-slate-500 font-medium">
-                  {isGroupedView ? 'kelompok barang' : `dari ${data.length} total data`}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={fetchData}
+                  disabled={isFetching}
+                  title="Refresh data dari SAP"
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </button>
+                <div className="text-right">
+                  <div className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400">
+                    {isFetching ? <RotateCcw className="w-6 h-6 animate-spin inline text-blue-500" /> : filteredData.length}
+                  </div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+                    {isGroupedView ? 'kelompok barang' : `dari ${data.length} total data`}
+                  </div>
                 </div>
               </div>
             </div>
@@ -424,7 +437,7 @@ export default function StokPage() {
                 </div>
                 <button
                   onClick={fetchData}
-                  className="text-xs font-bold text-rose-600 dark:text-rose-400 underline hover:text-rose-800 dark:hover:text-rose-200 ml-4 shrink-0"
+                  className="text-xs font-bold text-rose-600 dark:text-rose-400 underline hover:text-rose-800 dark:hover:text-rose-200 ml-4 shrink-0 cursor-pointer"
                 >
                   Coba lagi
                 </button>

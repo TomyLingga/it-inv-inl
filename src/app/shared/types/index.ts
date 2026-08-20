@@ -175,14 +175,55 @@ export interface PoListData extends BaseData {
   kppbc: 'KPPBC Pematangsiantar' | 'KPPBC Kuala Tanjung' | string
 }
 
-
-
+// MUTASI (MB51 GOODS MOVEMENT)
+export interface MutasiData extends BaseData {
+  docDate: string        // BLDAT - Document Date
+  entryDate: string      // CPUDT - Tanggal entry di SAP
+  entryTime: string      // CPUTM - Waktu entry di SAP
+  nomorDokMaterial: string // MBLNR - Nomor Material Document
+  tahunDokumen: number   // MJAHR - Tahun fiskal Material Document
+  itemDokumen: number    // ZEILE - Nomor item Material Document
+  movementType: string   // BWART - Movement Type (101, 102, 201, 261, etc.)
+  movementText: string   // BTEXT - Deskripsi Movement Type
+  transType: string      // VGART - Jenis Transaksi (WE, WA, etc.)
+  shkzg: 'S' | 'H' | string // S = Masuk/Debit (+), H = Keluar/Kredit (-)
+  arahMutasi: string     // Masuk / Keluar
+  asalMutasi: string     // Asal barang (Vendor, SLoc asal, Produksi, dll)
+  tujuanMutasi: string   // Tujuan pergerakan (Gudang, Produksi, Cost Center, dll)
+  alurMutasi: string     // Format visual ringkas: [Asal] ➔ [Tujuan]
+  kodeBarang: string     // MATNR - Nomor Material SAP
+  namaBarang: string     // MAKTX - Nama Material
+  batch: string          // CHARG - Nomor Batch Material
+  valuationType: string  // BWTAR - Valuation Type
+  plant: string          // WERKS - Kode Plant
+  plantName: string      // NAME1 - Nama Plant
+  storageLocation: string // LGORT - Storage Location
+  destPlant: string      // UMWRK - Plant Tujuan (Transfer)
+  destStorageLocation: string // UMLGO - Storage Location Tujuan
+  jumlah: number         // MENGE / ERFMG - Kuantitas
+  satuan: string         // MEINS / ERFME - Satuan Unit
+  nilaiMutasi: number    // DMBTR - Nilai Transaksi Mata Uang Lokal
+  mataUang: string       // WAERS - Mata Uang (IDR)
+  nomorPo: string        // EBELN - Nomor PO (jika ada)
+  itemPo: number         // EBELP - Nomor Item PO
+  kodeVendor: string     // LIFNR - Kode Vendor
+  customer: string       // KUNNR - Kode Pelanggan / Konsumen
+  penerimaBarang: string // WEMPF - Referensi Penerima Barang
+  orderNo: string        // AUFNR - Production / Internal Order
+  costCenter: string     // KOSTL - Cost Center
+  userSap: string        // USNAM - User SAP Pembuat
+  headerText: string     // BKTXT - Document Header Text
+  itemText: string       // SGTXT - Item Text
+  keterangan: string     // Ringkasan keterangan (SGTXT / BKTXT)
+  grupMaterial: string   // ZZMATKL - Material Group
+  namaGrupMaterial: string // ZZWGBEZ - Deskripsi Material Group
+}
 
 // ============================================================================
 // UTILITY TYPES
 // ============================================================================
 
-export type DataType = PemasukanData | PengeluaranData | StokData | MaterialListData | PoListData
+export type DataType = PemasukanData | PengeluaranData | StokData | MaterialListData | PoListData | MutasiData
 
 export interface PageConfig<T = any> {
   title: string
