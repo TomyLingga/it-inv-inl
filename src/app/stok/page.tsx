@@ -1,16 +1,17 @@
 // src/app/stok/page.tsx
 
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/components/useAuth'
 import Sidebar, { Topbar } from '@/app/components/Sidebar'
-import { Calendar, Package, AlertCircle, Loader2, Download, Search, X, RotateCcw, Factory, Layers, List } from 'lucide-react'
+import { Calendar, Package, AlertCircle, Loader2, Download, Search, X, RotateCcw, Factory, Layers, List, Boxes } from 'lucide-react'
 import { fetchWithTokenRefresh } from '@/lib/fetchWithTokenRefresh'
 
 // Shared Components
 import ExportModal from '@/app/shared/components/ExportModal'
 import DataTable from '@/app/shared/components/DataTable'
+import SearchableSelect from '@/app/shared/components/SearchableSelect'
 import { Spinner } from '@/app/components/ui/spinner'
 import LoadingOverlay from '@/app/components/ui/LoadingOverlay'
 import { InteractiveHoverButton } from '@/components/ui/interactive-hover-button'
@@ -117,9 +118,24 @@ export default function StokPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedDate, setSelectedDate] = useState(getTodayIso())
   const [selectedPlant, setSelectedPlant] = useState('IN01')
+  const [selectedMatnr, setSelectedMatnr] = useState('all')
   const [plantOptions, setPlantOptions] = useState<{ value: string; label: string }[]>(PLANT_OPTIONS)
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({})
   const [showColumnFilter, setShowColumnFilter] = useState<string | null>(null)
+
+  // Opsi material (searchable) diturunkan dari data stok yang termuat — unik per kode material.
+  const materialOptions = useMemo(() => {
+    const seen = new Map<string, string>()
+    data.forEach((d) => {
+      const code = (d.kodeBarang ?? '').toString()
+      if (code && !seen.has(code)) {
+        seen.set(code, `${normalizeCode(code)} – ${d.namaBarang || ''}`.trim())
+      }
+    })
+    return Array.from(seen, ([value, label]) => ({ value, label })).sort((a, b) =>
+      a.label.localeCompare(b.label)
+    )
+  }, [data])
 
   // Fetch Plant options dari DB API
   useEffect(() => {
@@ -273,13 +289,18 @@ export default function StokPage() {
       }
     })
 
+    // Filter Material (kode material spesifik)
+    if (selectedMatnr !== 'all') {
+      result = result.filter((item) => item.kodeBarang === selectedMatnr)
+    }
+
     if (isGroupedView) {
       result = groupStokData(result)
     }
 
     result.sort(createSortFunction(sortConfig))
     setFilteredData(resequenceData(result))
-  }, [data, searchTerm, columnFilters, sortConfig, isGroupedView])
+  }, [data, searchTerm, columnFilters, selectedMatnr, sortConfig, isGroupedView])
 
   // Handlers
   const handleSort = (key: keyof StokData) => {
@@ -305,6 +326,7 @@ export default function StokPage() {
     setSearchTerm('')
     setSelectedPlant('IN01')
     setSelectedDate(getTodayIso())
+    setSelectedMatnr('all')
     setColumnFilters({})
     setShowColumnFilter(null)
   }
@@ -449,7 +471,7 @@ export default function StokPage() {
               {/* Row 1: Plant & Tanggal Stok */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4 items-end">
                 {/* Plant */}
-                <div className="sm:col-span-1 lg:col-span-6">
+                <div className="sm:col-span-1 lg:col-span-4">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
                     <Factory className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                     <span>Plant</span>
@@ -468,7 +490,7 @@ export default function StokPage() {
                 </div>
 
                 {/* Single Date */}
-                <div className="sm:col-span-1 lg:col-span-6">
+                <div className="sm:col-span-1 lg:col-span-4">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Tanggal Stok</span>
@@ -479,6 +501,26 @@ export default function StokPage() {
                     max={getTodayIso()}
                     onChange={(e) => setSelectedDate(e.target.value)}
                     className="w-full h-10 px-3 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 font-medium cursor-pointer shadow-2xs"
+                  />
+                </div>
+
+                {/* Material (searchable, hanya fasilitas kepabeanan) */}
+                <div className="sm:col-span-2 lg:col-span-4">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <Boxes className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+                    <span>Material</span>
+                    <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-100 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-900/30">
+                      Fasilitas Kepabeanan
+                    </span>
+                  </label>
+                  <SearchableSelect
+                    value={selectedMatnr}
+                    onChange={setSelectedMatnr}
+                    options={materialOptions}
+                    allOption={{ value: 'all', label: 'Semua Material Fasilitas' }}
+                    searchPlaceholder="Cari kode / nama material..."
+                    icon={<Boxes className="w-4 h-4" />}
+                    focusRing="focus:ring-violet-500"
                   />
                 </div>
               </div>
@@ -529,6 +571,17 @@ export default function StokPage() {
                     <X
                       className="w-3.5 h-3.5 cursor-pointer hover:opacity-75"
                       onClick={() => setSearchTerm('')}
+                    />
+                  </span>
+                )}
+                {selectedMatnr !== 'all' && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-50 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-900/50 rounded-full text-xs font-medium max-w-[280px]">
+                    <span className="truncate">
+                      Material: {materialOptions.find((o) => o.value === selectedMatnr)?.label ?? selectedMatnr}
+                    </span>
+                    <X
+                      className="w-3.5 h-3.5 shrink-0 cursor-pointer hover:opacity-75"
+                      onClick={() => setSelectedMatnr('all')}
                     />
                   </span>
                 )}
@@ -600,6 +653,7 @@ export default function StokPage() {
             <DataTable
               data={filteredData}
               columns={STOK_CONFIG.columns}
+              storageKey="stok"
               sortConfig={sortConfig}
               onSort={handleSort}
               columnFilters={columnFilters}

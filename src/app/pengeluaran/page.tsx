@@ -493,6 +493,8 @@ export default function PengeluaranPage() {
             <DataTable
               data={filteredData}
               columns={PENGELUARAN_CONFIG.columns}
+              columnGroups={PENGELUARAN_CONFIG.columnGroups}
+              storageKey="pengeluaran"
               sortConfig={sortConfig}
               onSort={handleSort}
               columnFilters={columnFilters}

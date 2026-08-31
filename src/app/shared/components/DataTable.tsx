@@ -9,12 +9,12 @@ import {
   ChevronsLeft,
   ChevronsRight,
   PackageSearch,
-  RotateCcw,
-  RefreshCw,
+  Rows3,
+  AlignJustify,
 } from 'lucide-react'
 import { useState, useEffect, Fragment } from 'react'
-import { BaseData, ColumnConfig, SortConfig, TableConfig } from '../types'
-import { calculateTotal, formatCurrency } from '../utils/filterUtils'
+import { BaseData, ColumnConfig, SortConfig, TableConfig, ColumnGroup, TableDensity } from '../types'
+import { calculateTotal } from '../utils/filterUtils'
 import { Spinner } from '@/app/components/ui/spinner'
 
 interface DataTableProps<T extends BaseData> {
@@ -34,6 +34,14 @@ interface DataTableProps<T extends BaseData> {
 
   tableConfig?: TableConfig<T>
 
+  /** Optional grouping bands rendered above the header (wide tables). */
+  columnGroups?: ColumnGroup[]
+
+  /** Initial row density; persisted per view when `storageKey` is provided. */
+  density?: TableDensity
+  /** localStorage key used to remember the density choice for this view. */
+  storageKey?: string
+
   pageSize?: number
 
   isLoading?: boolean
@@ -41,6 +49,8 @@ interface DataTableProps<T extends BaseData> {
   renderExpandedRow?: (row: T) => React.ReactNode
   onRowClick?: (row: T) => void
 }
+
+const DEFAULT_STICKY_WIDTH = 120
 
 export default function DataTable<T extends BaseData>({
   data,
@@ -54,6 +64,9 @@ export default function DataTable<T extends BaseData>({
   setShowColumnFilter,
   onClearAllFilters,
   tableConfig,
+  columnGroups,
+  density = 'comfortable',
+  storageKey,
   pageSize = 25,
   isLoading = false,
   renderExpandedRow,
@@ -62,6 +75,28 @@ export default function DataTable<T extends BaseData>({
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(pageSize)
   const [expandedRowKeys, setExpandedRowKeys] = useState<Record<string, boolean>>({})
+  const [rowDensity, setRowDensity] = useState<TableDensity>(density)
+
+  // Restore persisted density (per view) — guarded so private/blocked storage never throws.
+  useEffect(() => {
+    if (!storageKey) return
+    try {
+      const saved = window.localStorage.getItem(`density:${storageKey}`)
+      if (saved === 'compact' || saved === 'comfortable') setRowDensity(saved)
+    } catch {
+      /* storage unavailable — keep default */
+    }
+  }, [storageKey])
+
+  const changeDensity = (next: TableDensity) => {
+    setRowDensity(next)
+    if (!storageKey) return
+    try {
+      window.localStorage.setItem(`density:${storageKey}`, next)
+    } catch {
+      /* ignore */
+    }
+  }
 
   useEffect(() => {
     setCurrentPage(1)
@@ -72,7 +107,23 @@ export default function DataTable<T extends BaseData>({
   const endIdx = Math.min(startIdx + rowsPerPage, data.length)
   const pageData = data.slice(startIdx, endIdx)
 
-  // Hitung footer totals dari SEMUA data
+  // ─── Sticky-left offsets (identity columns on wide tables) ─────────────────
+  const stickyOffsets: Record<string, number> = {}
+  let stickyAcc = 0
+  columns.forEach((col) => {
+    if (col.sticky === 'left') {
+      stickyOffsets[col.key as string] = stickyAcc
+      stickyAcc += col.stickyWidth ?? DEFAULT_STICKY_WIDTH
+    }
+  })
+  const stickyKeys = columns.filter((c) => c.sticky === 'left').map((c) => c.key as string)
+  const lastStickyKey = stickyKeys[stickyKeys.length - 1]
+
+  // Density-driven paddings
+  const headPadY = rowDensity === 'compact' ? 'py-2' : 'py-3.5'
+  const bodyPadY = rowDensity === 'compact' ? 'py-1.5' : 'py-3'
+
+  // Footer totals from ALL data
   const footerTotals: Record<string, number> = {}
   if (tableConfig?.showFooter && tableConfig.footerCalculations) {
     tableConfig.footerCalculations.forEach((calc) => {
@@ -112,7 +163,6 @@ export default function DataTable<T extends BaseData>({
     return (
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
         <div className="text-center py-12 sm:py-16 px-4 bg-slate-50/40 dark:bg-slate-900/40 flex flex-col items-center justify-center">
-          {/* Icon without background box */}
           <PackageSearch className="w-10 h-10 text-slate-400 dark:text-slate-500 mb-3 stroke-[1.5]" />
 
           <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">
@@ -146,21 +196,51 @@ export default function DataTable<T extends BaseData>({
     return range
   }
 
+  // Sticky style/class helpers ------------------------------------------------
+  const stickyStyle = (col: ColumnConfig<T>): React.CSSProperties | undefined => {
+    if (col.sticky !== 'left') return undefined
+    const w = col.stickyWidth ?? DEFAULT_STICKY_WIDTH
+    return { left: stickyOffsets[col.key as string], minWidth: w, maxWidth: w }
+  }
+
+  const isLastSticky = (col: ColumnConfig<T>) => (col.key as string) === lastStickyKey
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors duration-200">
-      <div className="overflow-x-auto">
+      {/* Scroll region: bounded height so the header can stay sticky on long lists */}
+      <div className="overflow-auto max-h-[calc(100vh-320px)] min-h-[240px]">
         <table className="w-full">
           {/* HEADER */}
-          <thead className="bg-slate-900 dark:bg-slate-950 text-slate-200 border-b-2 border-slate-700/80">
+          <thead className="text-slate-200">
+            {/* Optional column-group band */}
+            {columnGroups && columnGroups.length > 0 && (
+              <tr className="bg-slate-950 dark:bg-black/60">
+                {columnGroups.map((g, gi) => (
+                  <th
+                    key={`${g.label}-${gi}`}
+                    colSpan={g.span}
+                    className="sticky top-0 z-20 px-3 lg:px-4 py-2 text-left text-[10px] font-black text-slate-300 uppercase tracking-[0.12em] border-r border-b border-slate-800/80 last:border-r-0 whitespace-nowrap bg-slate-950 dark:bg-black/60"
+                  >
+                    {g.label}
+                  </th>
+                ))}
+              </tr>
+            )}
+
             <tr>
               {columns.map((col) => {
                 const isSorted = sortConfig.key === col.key
                 const isFiltered = Boolean(columnFilters[col.key as string])
+                const sticky = col.sticky === 'left'
+                const topClass = columnGroups && columnGroups.length > 0 ? 'top-9' : 'top-0'
 
                 return (
                   <th
                     key={col.key as string}
-                    className={`px-3 lg:px-4 py-3.5 text-left text-[11px] sm:text-xs font-extrabold text-slate-200 uppercase tracking-wider border-r border-slate-800/80 last:border-r-0 whitespace-nowrap select-none ${
+                    style={stickyStyle(col)}
+                    className={`sticky ${topClass} ${sticky ? 'z-30' : 'z-20'} bg-slate-900 dark:bg-slate-950 px-3 lg:px-4 ${headPadY} text-left text-[11px] sm:text-xs font-extrabold text-slate-200 uppercase tracking-wider border-r border-b-2 border-slate-800/80 border-b-slate-700/80 last:border-r-0 whitespace-nowrap select-none ${
+                      sticky ? 'left-0' : ''
+                    } ${sticky && isLastSticky(col) ? 'shadow-[6px_0_8px_-6px_rgba(0,0,0,0.55)]' : ''} ${
                       col.sortable ? 'cursor-pointer hover:bg-slate-800/90 transition-colors' : ''
                     } ${col.className || ''}`}
                     onClick={() => col.sortable && onSort(col.key)}
@@ -250,33 +330,51 @@ export default function DataTable<T extends BaseData>({
           </thead>
 
           {/* BODY */}
-          <tbody className="divide-y divide-slate-200 dark:divide-slate-800/80 bg-white dark:bg-slate-900">
+          <tbody
+            key={currentPage}
+            className="divide-y divide-slate-200 dark:divide-slate-800/80 bg-white dark:bg-slate-900 motion-safe:animate-fade-up"
+          >
             {pageData.map((row, idx) => {
               const isEvenRow = (idx + 1) % 2 === 0
               const rowId = (row as any).groupKey || (row as any).id || `${row.no}-${idx}`
               const isExpanded = Boolean(expandedRowKeys[rowId])
               const hasExpandableContent = renderExpandedRow && ((row as any).batchesCount > 1 || (row as any).batchesList?.length > 1)
 
+              // Opaque backgrounds so sticky cells fully cover scrolling content.
+              const rowBg = isExpanded
+                ? 'bg-blue-50 dark:bg-slate-800'
+                : isEvenRow
+                ? 'bg-slate-50 dark:bg-slate-800/60'
+                : 'bg-white dark:bg-slate-900'
+              const stickyBg = isExpanded
+                ? 'bg-blue-50 dark:bg-slate-800'
+                : isEvenRow
+                ? 'bg-slate-100 dark:bg-slate-800'
+                : 'bg-white dark:bg-slate-900'
+
               return (
                 <Fragment key={`${rowId}-${idx}`}>
                   <tr
                     onClick={() => onRowClick && onRowClick(row)}
-                    className={`transition-colors duration-150 ${
-                      isEvenRow
-                        ? 'bg-slate-50/70 dark:bg-slate-800/40'
-                        : 'bg-white dark:bg-slate-900'
-                    } ${isExpanded ? 'bg-blue-50/90 dark:bg-slate-800/90' : ''} ${
+                    className={`group transition-colors duration-150 ${rowBg} ${
                       onRowClick ? 'cursor-pointer' : ''
                     } hover:bg-blue-50/80 dark:hover:bg-slate-800/80`}
                   >
                     {columns.map((col) => {
                       const value = row[col.key]
+                      const sticky = col.sticky === 'left'
+                      const stickyCls = sticky
+                        ? `sticky left-0 z-10 ${stickyBg} group-hover:bg-blue-50 dark:group-hover:bg-slate-800 ${
+                            isLastSticky(col) ? 'shadow-[6px_0_8px_-6px_rgba(0,0,0,0.35)]' : ''
+                          }`
+                        : ''
 
                       if (col.render) {
                         return (
                           <td
                             key={col.key as string}
-                            className={`px-3 lg:px-4 py-3 text-xs sm:text-sm border-r border-slate-100 dark:border-slate-800/60 last:border-r-0 ${col.className || ''}`}
+                            style={stickyStyle(col)}
+                            className={`px-3 lg:px-4 ${bodyPadY} text-xs sm:text-sm border-r border-slate-100 dark:border-slate-800/60 last:border-r-0 ${stickyCls} ${col.className || ''}`}
                           >
                             {col.render(value, row)}
                           </td>
@@ -285,12 +383,12 @@ export default function DataTable<T extends BaseData>({
 
                       let displayValue: React.ReactNode = value
                       let cellClass =
-                        'px-3 lg:px-4 py-3 text-xs sm:text-sm text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/60 last:border-r-0'
+                        `px-3 lg:px-4 ${bodyPadY} text-xs sm:text-sm text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/60 last:border-r-0`
 
                       if (col.key === 'no') {
                         cellClass =
-                          'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 border-r border-slate-100 dark:border-slate-800/60 text-center'
-                        
+                          `px-3 lg:px-4 ${bodyPadY} whitespace-nowrap text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 border-r border-slate-100 dark:border-slate-800/60 text-center`
+
                         if (hasExpandableContent) {
                           displayValue = (
                             <div className="flex items-center justify-center space-x-1.5">
@@ -315,7 +413,7 @@ export default function DataTable<T extends BaseData>({
                         }
                       } else if (col.key === 'postingDate') {
                         cellClass =
-                          'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm border-r border-slate-100 dark:border-slate-800/60'
+                          `px-3 lg:px-4 ${bodyPadY} whitespace-nowrap text-xs sm:text-sm border-r border-slate-100 dark:border-slate-800/60`
                         displayValue = (
                           <span className="font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-900/40">
                             {value}
@@ -323,7 +421,7 @@ export default function DataTable<T extends BaseData>({
                         )
                       } else if (col.key === 'jenisDokBC') {
                         cellClass =
-                          'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm border-r border-slate-100 dark:border-slate-800/60'
+                          `px-3 lg:px-4 ${bodyPadY} whitespace-nowrap text-xs sm:text-sm border-r border-slate-100 dark:border-slate-800/60`
                         displayValue = (
                           <span className="font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded-md border border-purple-200 dark:border-purple-900/40 text-xs">
                             {value}
@@ -331,7 +429,7 @@ export default function DataTable<T extends BaseData>({
                         )
                       } else if (col.key === 'mataUangDokumen' || col.key === 'mataUangLokal' || col.key === 'currency') {
                         cellClass =
-                          'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm border-r border-slate-100 dark:border-slate-800/60 text-center'
+                          `px-3 lg:px-4 ${bodyPadY} whitespace-nowrap text-xs sm:text-sm border-r border-slate-100 dark:border-slate-800/60 text-center`
                         displayValue = (
                           <span className="font-semibold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs inline-block">
                             {value}
@@ -342,23 +440,27 @@ export default function DataTable<T extends BaseData>({
                         col.key.toString().toLowerCase().includes('nilai')
                       ) {
                         cellClass =
-                          'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white border-r border-slate-100 dark:border-slate-800/60 text-right'
+                          `px-3 lg:px-4 ${bodyPadY} whitespace-nowrap text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white border-r border-slate-100 dark:border-slate-800/60 text-right num-tabular`
                         displayValue = value.toLocaleString('id-ID')
                       } else if (
                         typeof value === 'number' &&
                         col.key.toString().includes('jumlah')
                       ) {
                         cellClass =
-                          'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 border-r border-slate-100 dark:border-slate-800/60 text-right'
+                          `px-3 lg:px-4 ${bodyPadY} whitespace-nowrap text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 border-r border-slate-100 dark:border-slate-800/60 text-right num-tabular`
                         displayValue = value.toLocaleString('id-ID')
                       } else if (col.key === 'kursDokumen' && typeof value === 'number') {
                         cellClass =
-                          'px-3 lg:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/60 text-right'
+                          `px-3 lg:px-4 ${bodyPadY} whitespace-nowrap text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 border-r border-slate-100 dark:border-slate-800/60 text-right num-tabular`
                         displayValue = value.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 5 })
+                      } else if (col.align === 'right') {
+                        cellClass += ' text-right num-tabular'
+                      } else if (col.align === 'center') {
+                        cellClass += ' text-center'
                       }
 
                       return (
-                        <td key={col.key as string} className={cellClass}>
+                        <td key={col.key as string} style={stickyStyle(col)} className={`${cellClass} ${stickyCls}`}>
                           {displayValue}
                         </td>
                       )
@@ -379,18 +481,25 @@ export default function DataTable<T extends BaseData>({
 
           {/* FOOTER */}
           {tableConfig?.showFooter && tableConfig?.footerCalculations?.length ? (
-            <tfoot className="bg-slate-900 dark:bg-slate-950 text-white border-t-2 border-slate-700">
+            <tfoot className="bg-slate-900 dark:bg-slate-950 text-white">
               <tr>
                 {columns.map((col, colIdx) => {
                   const calculation = tableConfig.footerCalculations?.find(
                     (calc) => calc.column === col.key
                   )
+                  const sticky = col.sticky === 'left'
+                  const stickyCls = sticky
+                    ? `sticky left-0 z-10 bg-slate-900 dark:bg-slate-950 ${
+                        isLastSticky(col) ? 'shadow-[6px_0_8px_-6px_rgba(0,0,0,0.55)]' : ''
+                      }`
+                    : ''
 
                   if (colIdx === 0) {
                     return (
                       <td
                         key={col.key as string}
-                        className="px-4 py-3 text-xs font-black text-white uppercase tracking-wider text-center"
+                        style={stickyStyle(col)}
+                        className={`px-4 py-3 text-xs font-black text-white uppercase tracking-wider text-center border-t-2 border-slate-700 ${stickyCls}`}
                       >
                         TOTAL
                       </td>
@@ -398,7 +507,13 @@ export default function DataTable<T extends BaseData>({
                   }
 
                   if (!calculation) {
-                    return <td key={col.key as string} className="px-3 py-3" />
+                    return (
+                      <td
+                        key={col.key as string}
+                        style={stickyStyle(col)}
+                        className={`px-3 py-3 border-t-2 border-slate-700 ${stickyCls}`}
+                      />
+                    )
                   }
 
                   const totalValue = footerTotals[col.key as string] ?? 0
@@ -412,7 +527,7 @@ export default function DataTable<T extends BaseData>({
                   return (
                     <td
                       key={col.key as string}
-                      className={`px-3 lg:px-4 py-3 text-xs sm:text-sm whitespace-nowrap ${textClass}`}
+                      className={`px-3 lg:px-4 py-3 text-xs sm:text-sm whitespace-nowrap border-t-2 border-slate-700 num-tabular ${textClass}`}
                     >
                       {formatted}
                     </td>
@@ -426,7 +541,7 @@ export default function DataTable<T extends BaseData>({
 
       {/* ─── Pagination Bar ───────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
-        <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
+        <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 flex-wrap">
           <span>
             Menampilkan{' '}
             <span className="font-bold text-slate-900 dark:text-slate-100">{startIdx + 1}</span>–
@@ -447,6 +562,36 @@ export default function DataTable<T extends BaseData>({
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Density toggle */}
+          <div className="flex items-center gap-1 border border-slate-300 dark:border-slate-700 rounded-lg p-0.5 bg-white dark:bg-slate-800">
+            <button
+              type="button"
+              onClick={() => changeDensity('comfortable')}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold transition-colors ${
+                rowDensity === 'comfortable'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+              title="Kepadatan nyaman"
+            >
+              <Rows3 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Nyaman</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => changeDensity('compact')}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold transition-colors ${
+                rowDensity === 'compact'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+              title="Kepadatan padat"
+            >
+              <AlignJustify className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Padat</span>
+            </button>
           </div>
         </div>
 

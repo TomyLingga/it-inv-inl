@@ -3,9 +3,9 @@
 import { PemasukanData, ColumnConfig, PageConfig } from '@/app/shared/types'
 
 export const PEMASUKAN_COLUMNS: ColumnConfig<PemasukanData>[] = [
-  { key: 'no', label: 'NO', filterable: false, sortable: false, width: '8' },
-  { key: 'postingDate', label: 'TGL MSK', filterable: true, sortable: true, width: '18' },
-  { key: 'nomorDokMaterial', label: 'NO DOK GR', filterable: true, sortable: true, width: '20' },
+  { key: 'no', label: 'NO', filterable: false, sortable: false, width: '8', sticky: 'left', stickyWidth: 52 },
+  { key: 'postingDate', label: 'TGL MSK', filterable: true, sortable: true, width: '18', sticky: 'left', stickyWidth: 110 },
+  { key: 'nomorDokMaterial', label: 'NO DOK GR', filterable: true, sortable: true, width: '20', sticky: 'left', stickyWidth: 150 },
   { key: 'jenisDokBC', label: 'DOC BC', filterable: true, sortable: true },
   { key: 'nomorDokAju', label: 'NO DOK AJU', filterable: true, sortable: true },
   { key: 'tglDokAju', label: 'TGL DOK AJU', filterable: true, sortable: true },
@@ -48,6 +48,13 @@ export const PEMASUKAN_CONFIG: PageConfig<PemasukanData> = {
   icon: 'ArrowDownToLine',
   description: 'Monitor laporan pemasukan material per periode',
   columns: PEMASUKAN_COLUMNS,
+  columnGroups: [
+    { label: 'Dokumen GR', span: 3 },
+    { label: 'Dokumen Pabean (BC)', span: 5 },
+    { label: 'Referensi', span: 2 },
+    { label: 'Material', span: 5 },
+    { label: 'Kuantitas & Nilai', span: 7 },
+  ],
   filterConfig: {
     showGlobalSearch: true,
     showDateFilter: true,

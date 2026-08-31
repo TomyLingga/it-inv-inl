@@ -2,17 +2,20 @@
 
 import React from 'react'
 import { MutasiData, ColumnConfig, PageConfig } from '@/app/shared/types'
-import { ArrowDownLeft, ArrowUpRight, ArrowRight } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, ArrowRight, RotateCcw } from 'lucide-react'
+import { isReversal } from './mutasiUtils'
 
 export const MUTASI_COLUMNS: ColumnConfig<MutasiData>[] = [
-  { key: 'no', label: 'NO', filterable: false, sortable: false, width: '8' },
-  { key: 'postingDate', label: 'TGL POSTING', filterable: true, sortable: true, width: '18' },
+  { key: 'no', label: 'NO', filterable: false, sortable: false, width: '8', sticky: 'left', stickyWidth: 52 },
+  { key: 'postingDate', label: 'TGL POSTING', filterable: true, sortable: true, width: '18', sticky: 'left', stickyWidth: 118 },
   {
     key: 'nomorDokMaterial',
     label: 'NO DOKUMEN',
     filterable: true,
     sortable: true,
     width: '20',
+    sticky: 'left',
+    stickyWidth: 150,
     render: (value, row) => (
       <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">
         {value}{row.itemDokumen ? ` / ${row.itemDokumen}` : ''}
@@ -27,21 +30,29 @@ export const MUTASI_COLUMNS: ColumnConfig<MutasiData>[] = [
     width: '18',
     render: (value, row) => {
       const isMasuk = row.shkzg === 'S' || value === 'Masuk'
+      const reversal = isReversal(row)
       return (
-        <span
-          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold border ${
-            isMasuk
-              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/40'
-              : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/40'
-          }`}
-        >
-          {isMasuk ? (
-            <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-          ) : (
-            <ArrowUpRight className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+        <div className="flex flex-col items-start gap-1">
+          <span
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold border ${
+              isMasuk
+                ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/40'
+                : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/40'
+            }`}
+          >
+            {isMasuk ? (
+              <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <ArrowUpRight className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+            )}
+            <span>{isMasuk ? 'Masuk (Receipt)' : 'Keluar (Issue)'}</span>
+          </span>
+          {reversal && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50">
+              <RotateCcw className="w-3 h-3" /> Pembatalan
+            </span>
           )}
-          <span>{isMasuk ? 'Masuk (Receipt)' : 'Keluar (Issue)'}</span>
-        </span>
+        </div>
       )
     },
   },
@@ -135,11 +146,16 @@ export const MUTASI_COLUMNS: ColumnConfig<MutasiData>[] = [
     width: '16',
     render: (value, row) => {
       const isMasuk = row.shkzg === 'S' || row.arahMutasi === 'Masuk'
+      const reversal = isReversal(row)
       const num = Number(value) || 0
       return (
         <span
-          className={`font-mono text-xs font-bold ${
-            isMasuk ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+          className={`font-mono text-xs font-bold num-tabular ${
+            reversal
+              ? 'text-rose-500 line-through decoration-rose-400/70'
+              : isMasuk
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-rose-600 dark:text-rose-400'
           }`}
         >
           {isMasuk ? '+' : '-'}{Math.abs(num).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 3 })}
@@ -231,6 +247,13 @@ export const MUTASI_CONFIG: PageConfig<MutasiData> = {
   icon: 'ArrowLeftRight',
   description: 'Monitor dan penelusuran (traceability) seluruh mutasi material di gudang',
   columns: MUTASI_COLUMNS,
+  columnGroups: [
+    { label: 'Dokumen', span: 3 },
+    { label: 'Arah & Alur', span: 3 },
+    { label: 'Material', span: 4 },
+    { label: 'Kuantitas & Nilai', span: 3 },
+    { label: 'Referensi & Audit', span: 3 },
+  ],
   filterConfig: {
     showGlobalSearch: true,
     showDateFilter: true,

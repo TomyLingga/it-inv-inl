@@ -28,7 +28,23 @@ export interface ColumnConfig<T = any> {
   width?: string
   render?: (value: any, row: T) => React.ReactNode
   className?: string
+  /** Sticky column on horizontal scroll (identity columns on wide tables). */
+  sticky?: 'left'
+  /** Fixed pixel width for a sticky column, used to compute left offsets. */
+  stickyWidth?: number
+  /** Explicit cell alignment override for the generic (non-render) formatter. */
+  align?: 'left' | 'right' | 'center'
 }
+
+/** Grouping band rendered above the column header row (wide tables). */
+export interface ColumnGroup {
+  label: string
+  span: number
+  icon?: string
+}
+
+/** Row density for tables — persisted per view. */
+export type TableDensity = 'comfortable' | 'compact'
 
 export interface FilterConfig {
   showGlobalSearch?: boolean
@@ -233,5 +249,7 @@ export interface PageConfig<T = any> {
   filterConfig: FilterConfig
   exportConfig: ExportConfig
   tableConfig?: TableConfig<T>
+  /** Optional grouping bands rendered above the header (wide tables). Sum of spans must equal columns.length. */
+  columnGroups?: ColumnGroup[]
 }
 

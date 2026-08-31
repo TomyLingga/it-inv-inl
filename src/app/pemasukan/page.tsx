@@ -490,6 +490,8 @@ export default function PemasukanPage() {
             <DataTable
               data={filteredData}
               columns={PEMASUKAN_CONFIG.columns}
+              columnGroups={PEMASUKAN_CONFIG.columnGroups}
+              storageKey="pemasukan"
               sortConfig={sortConfig}
               onSort={handleSort}
               columnFilters={columnFilters}

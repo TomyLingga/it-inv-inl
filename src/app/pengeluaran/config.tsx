@@ -3,9 +3,9 @@
 import { PengeluaranData, ColumnConfig, PageConfig } from '@/app/shared/types'
 
 export const PENGELUARAN_COLUMNS: ColumnConfig<PengeluaranData>[] = [
-  { key: 'no', label: 'NO', filterable: false, sortable: false, width: '8' },
-  { key: 'postingDate', label: 'TGL KELUAR', filterable: true, sortable: true, width: '18' },
-  { key: 'nomorDokMaterial', label: 'NO DOK GR', filterable: true, sortable: true, width: '20' },
+  { key: 'no', label: 'NO', filterable: false, sortable: false, width: '8', sticky: 'left', stickyWidth: 52 },
+  { key: 'postingDate', label: 'TGL KELUAR', filterable: true, sortable: true, width: '18', sticky: 'left', stickyWidth: 118 },
+  { key: 'nomorDokMaterial', label: 'NO DOK GR', filterable: true, sortable: true, width: '20', sticky: 'left', stickyWidth: 150 },
   { key: 'jenisDokBC', label: 'DOC BC', filterable: true, sortable: true },
   { key: 'nomorDokAju', label: 'NO DOK AJU', filterable: true, sortable: true },
   { key: 'tglDokAju', label: 'TGL DOK AJU', filterable: true, sortable: true },
@@ -49,6 +49,13 @@ export const PENGELUARAN_CONFIG: PageConfig<PengeluaranData> = {
   icon: 'ArrowUpFromLine',
   description: 'Monitor laporan pengeluaran material per periode',
   columns: PENGELUARAN_COLUMNS,
+  columnGroups: [
+    { label: 'Dokumen GR', span: 3 },
+    { label: 'Dokumen Pabean (BC)', span: 5 },
+    { label: 'Referensi', span: 3 },
+    { label: 'Material', span: 5 },
+    { label: 'Kuantitas & Nilai', span: 7 },
+  ],
   filterConfig: {
     showGlobalSearch: true,
     showDateFilter: true,

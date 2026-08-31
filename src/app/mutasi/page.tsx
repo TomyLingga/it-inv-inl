@@ -25,13 +25,17 @@ import {
   Boxes,
   HelpCircle,
   Workflow,
+  Table2,
+  RotateCcw,
 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 // Shared Components
 import FilterSection from '@/app/shared/components/FilterSection'
 import ActiveFilters from '@/app/shared/components/ActiveFilters'
 import ExportModal from '@/app/shared/components/ExportModal'
 import DataTable from '@/app/shared/components/DataTable'
+import SearchableSelect from '@/app/shared/components/SearchableSelect'
 import LoadingOverlay from '@/app/components/ui/LoadingOverlay'
 
 // Shared Utils & Types
@@ -47,6 +51,9 @@ import {
 
 // Module-specific Config
 import { MUTASI_CONFIG } from './config'
+import MutasiFlowView from './MutasiFlowView'
+import { buildBatchJourneys, isReversal } from './mutasiUtils'
+import { fadeInUp, modalBackdrop, modalPanel, useReducedMotionSafe } from '@/app/shared/utils/motion'
 import { fetchWithTokenRefresh } from '@/lib/fetchWithTokenRefresh'
 
 // ─── Format date for SAP: YYYYMMDD ───────────────────────────────────────────
@@ -243,16 +250,41 @@ function mapSapToMutasi(raw: any[]): MutasiData[] {
 // ─── Modal Traceability Detail ───────────────────────────────────────────────
 interface TraceabilityModalProps {
   data: MutasiData
+  allRows: MutasiData[]
+  reduce: boolean
   onClose: () => void
 }
 
-function TraceabilityModal({ data, onClose }: TraceabilityModalProps) {
+function TraceabilityModal({ data, allRows, reduce, onClose }: TraceabilityModalProps) {
   const isMasuk = data.shkzg === 'S' || data.arahMutasi === 'Masuk'
+  const reversal = isReversal(data)
+
+  // Batch journey (all movements sharing this material + batch), oldest → newest.
+  const journeySteps = useMemo(() => {
+    const journeys = buildBatchJourneys(allRows)
+    const match = journeys.find(
+      (j) => j.material === (data.kodeBarang ?? '') && j.batch === (data.batch ?? '')
+    )
+    return match?.steps ?? [data]
+  }, [allRows, data])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <motion.div
+        variants={reduce ? undefined : modalBackdrop}
+        initial={reduce ? undefined : 'hidden'}
+        animate={reduce ? undefined : 'visible'}
+        exit={reduce ? undefined : 'exit'}
+        className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <motion.div
+        variants={reduce ? undefined : modalPanel}
+        initial={reduce ? undefined : 'hidden'}
+        animate={reduce ? undefined : 'visible'}
+        exit={reduce ? undefined : 'exit'}
+        className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-slate-50 to-indigo-50/40 dark:from-slate-800 dark:to-indigo-950/20 shrink-0">
           <div className="flex items-center gap-3">
@@ -275,6 +307,11 @@ function TraceabilityModal({ data, onClose }: TraceabilityModalProps) {
                 }`}>
                   {isMasuk ? 'Penerimaan / Masuk (+)' : 'Pengeluaran / Keluar (-)'}
                 </span>
+                {reversal && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200">
+                    <RotateCcw className="w-3 h-3" /> Pembatalan
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Dokumen Material: <strong className="font-mono text-slate-700 dark:text-slate-200">{data.nomorDokMaterial}</strong> ({data.tahunDokumen} / Item {data.itemDokumen})
@@ -311,6 +348,53 @@ function TraceabilityModal({ data, onClose }: TraceabilityModalProps) {
               </div>
             </div>
           </div>
+
+          {/* Batch Journey Timeline (riwayat pergerakan batch/material) */}
+          {journeySteps.length > 1 && (
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white pb-1.5 border-b border-slate-100 dark:border-slate-800">
+                <Layers className="w-4 h-4 text-indigo-600" />
+                <span>Riwayat Batch (Journey) — {journeySteps.length} langkah</span>
+              </div>
+              <ol className="relative">
+                {journeySteps.map((s, i) => {
+                  const sMasuk = s.shkzg === 'S' || s.arahMutasi === 'Masuk'
+                  const sReversal = isReversal(s)
+                  const isCurrent =
+                    s.nomorDokMaterial === data.nomorDokMaterial && s.itemDokumen === data.itemDokumen
+                  return (
+                    <li key={`${s.nomorDokMaterial}-${s.itemDokumen}-${i}`} className="relative pl-7 pb-2.5 last:pb-0">
+                      {i !== journeySteps.length - 1 && (
+                        <span className="absolute left-[9px] top-5 bottom-0 w-px bg-slate-200 dark:bg-slate-700" aria-hidden />
+                      )}
+                      <span
+                        className={`absolute left-0 top-1 flex h-5 w-5 items-center justify-center rounded-full border ${
+                          sReversal
+                            ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 text-rose-600'
+                            : sMasuk
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 text-emerald-600'
+                            : 'bg-rose-50 dark:bg-rose-950/60 border-rose-200 text-rose-600'
+                        }`}
+                      >
+                        {sReversal ? <RotateCcw className="w-3 h-3" /> : sMasuk ? <ArrowDownLeft className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
+                      </span>
+                      <div className={`rounded-lg px-2.5 py-1.5 text-[11px] ${isCurrent ? 'bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/40' : ''}`}>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <span className="font-bold text-slate-600 dark:text-slate-300">{formatDateDisplay(s.postingDate)}</span>
+                          <span className="font-mono text-[10px] font-bold text-indigo-700 dark:text-indigo-300">{s.movementType}</span>
+                          <span className="text-slate-500 dark:text-slate-400 truncate max-w-[150px]">{s.asalMutasi} ➔ {s.tujuanMutasi}</span>
+                          <span className={`font-mono font-bold num-tabular ${sReversal ? 'text-rose-500 line-through' : sMasuk ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {sMasuk ? '+' : '-'}{Math.abs(Number(s.jumlah) || 0).toLocaleString('id-ID')} {s.satuan}
+                          </span>
+                          {isCurrent && <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase">• baris ini</span>}
+                        </div>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ol>
+            </div>
+          )}
 
           {/* Material & Movement Overview */}
           <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
@@ -464,7 +548,7 @@ function TraceabilityModal({ data, onClose }: TraceabilityModalProps) {
             Tutup
           </button>
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }
@@ -494,6 +578,10 @@ export default function MutasiPage() {
 
   // Detail Modal
   const [selectedTraceability, setSelectedTraceability] = useState<MutasiData | null>(null)
+
+  // View mode: 'tabel' (all columns) or 'alur' (batch-journey timeline)
+  const [viewMode, setViewMode] = useState<'tabel' | 'alur'>('tabel')
+  const reduce = useReducedMotionSafe()
 
   // Sort state
   const [sortConfig, setSortConfig] = useState<SortConfig<MutasiData>>({
@@ -848,7 +936,12 @@ export default function MutasiPage() {
               </div>
 
               {/* KPI Summary Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <motion.div
+                variants={reduce ? undefined : fadeInUp}
+                initial={reduce ? undefined : 'hidden'}
+                animate={reduce ? undefined : 'visible'}
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+              >
                 {/* Total Transaksi */}
                 <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900/40">
@@ -903,7 +996,7 @@ export default function MutasiPage() {
                     <span className="text-[11px] text-slate-400">Mata Uang IDR</span>
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Error Banner */}
               {fetchError && (
@@ -967,18 +1060,15 @@ export default function MutasiPage() {
                           Fasilitas Kepabeanan
                         </span>
                       </label>
-                      <select
+                      <SearchableSelect
                         value={selectedMatnr}
-                        onChange={(e) => setSelectedMatnr(e.target.value)}
-                        className="w-full h-10 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-sm rounded-xl px-3 py-2 focus:ring-2 focus:ring-violet-500 font-medium cursor-pointer shadow-2xs"
-                      >
-                        <option value="all">Semua Material Fasilitas</option>
-                        {materialOptions.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={setSelectedMatnr}
+                        options={materialOptions}
+                        allOption={{ value: 'all', label: 'Semua Material Fasilitas' }}
+                        searchPlaceholder="Cari kode / nama material..."
+                        icon={<Boxes className="w-4 h-4" />}
+                        focusRing="focus:ring-violet-500"
+                      />
                     </div>
                   </div>
                 }
@@ -1007,27 +1097,71 @@ export default function MutasiPage() {
                 />
               </div>
 
-              {/* Data Table */}
-              <div className="relative">
-                <DataTable
-                  data={filteredData}
-                  columns={MUTASI_CONFIG.columns}
-                  sortConfig={sortConfig}
-                  onSort={handleSort}
-                  columnFilters={columnFilters}
-                  onColumnFilter={(key, value) =>
-                    setColumnFilters((prev) => ({ ...prev, [key]: value }))
-                  }
-                  onClearColumnFilter={clearColumnFilter}
-                  showColumnFilter={showColumnFilter}
-                  setShowColumnFilter={setShowColumnFilter}
-                  onClearAllFilters={clearAllFilters}
-                  tableConfig={MUTASI_CONFIG.tableConfig}
-                  pageSize={25}
-                  isLoading={isFetching}
-                  onRowClick={(row: MutasiData) => setSelectedTraceability(row)}
-                />
+              {/* View toggle: Tabel (semua kolom) vs Alur (timeline per batch) */}
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1 shadow-xs">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('tabel')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      viewMode === 'tabel'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <Table2 className="w-3.5 h-3.5" />
+                    <span>Tabel</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('alur')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      viewMode === 'alur'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <Workflow className="w-3.5 h-3.5" />
+                    <span>Alur (Traceability)</span>
+                  </button>
+                </div>
+                <span className="text-xs text-slate-400 dark:text-slate-500 hidden sm:block">
+                  {viewMode === 'tabel'
+                    ? 'Tampilan tabel lengkap — semua kolom data'
+                    : 'Penelusuran pergerakan barang per batch/material'}
+                </span>
               </div>
+
+              {/* Data: Tabel atau Alur */}
+              {viewMode === 'tabel' ? (
+                <div className="relative">
+                  <DataTable
+                    data={filteredData}
+                    columns={MUTASI_CONFIG.columns}
+                    columnGroups={MUTASI_CONFIG.columnGroups}
+                    storageKey="mutasi"
+                    sortConfig={sortConfig}
+                    onSort={handleSort}
+                    columnFilters={columnFilters}
+                    onColumnFilter={(key, value) =>
+                      setColumnFilters((prev) => ({ ...prev, [key]: value }))
+                    }
+                    onClearColumnFilter={clearColumnFilter}
+                    showColumnFilter={showColumnFilter}
+                    setShowColumnFilter={setShowColumnFilter}
+                    onClearAllFilters={clearAllFilters}
+                    tableConfig={MUTASI_CONFIG.tableConfig}
+                    pageSize={25}
+                    isLoading={isFetching}
+                    onRowClick={(row: MutasiData) => setSelectedTraceability(row)}
+                  />
+                </div>
+              ) : (
+                <MutasiFlowView
+                  data={filteredData}
+                  onSelect={(row) => setSelectedTraceability(row)}
+                />
+              )}
             </div>
           </div>
         )}
@@ -1044,12 +1178,17 @@ export default function MutasiPage() {
       />
 
       {/* Traceability Detail Modal */}
-      {selectedTraceability && (
-        <TraceabilityModal
-          data={selectedTraceability}
-          onClose={() => setSelectedTraceability(null)}
-        />
-      )}
+      <AnimatePresence>
+        {selectedTraceability && (
+          <TraceabilityModal
+            key="traceability-modal"
+            data={selectedTraceability}
+            allRows={filteredData}
+            reduce={reduce}
+            onClose={() => setSelectedTraceability(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
