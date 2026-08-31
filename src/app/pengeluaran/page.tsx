@@ -305,10 +305,6 @@ export default function PengeluaranPage() {
     setShowColumnFilter(null)
   }
 
-  const isPageLoading = !isClient || loading || (isFetching && data.length === 0)
-
-  if (isClient && !loading && !isAuthenticated) return null
-
   // ─── KPI Calculations ──────────────────────────────────────────────────────
   const kpiStats = useMemo(() => {
     let totalQty = 0
@@ -319,6 +315,10 @@ export default function PengeluaranPage() {
     })
     return { totalDokumen: filteredData.length, totalQty, totalNilai }
   }, [filteredData])
+
+  const isPageLoading = !isClient || loading || (isFetching && data.length === 0)
+
+  if (isClient && !loading && !isAuthenticated) return null
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">

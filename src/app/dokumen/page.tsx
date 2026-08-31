@@ -781,7 +781,7 @@ export default function DokumenPage() {
                   {appliedSearch && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/40">
                       <Search className="w-3 h-3" />
-                      <span>Cari: "{appliedSearch}"</span>
+                      <span>Cari: &quot;{appliedSearch}&quot;</span>
                       <button onClick={() => { setSearch(''); setAppliedSearch('') }} className="hover:text-indigo-900 dark:hover:text-indigo-100 cursor-pointer">
                         <X className="w-3 h-3" />
                       </button>
