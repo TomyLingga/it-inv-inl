@@ -19,16 +19,27 @@ import LoadingOverlay from '@/app/components/ui/LoadingOverlay'
 import { MaterialListData, SortConfig, ExportFormat, ColumnConfig } from '@/app/shared/types'
 import { PLANT_OPTIONS } from '@/app/shared/utils/constants'
 import { exportToExcel, exportToPDF } from '@/app/shared/utils/exportUtils'
-import { createSortFunction, resequenceData } from '@/app/shared/utils/filterUtils'
+import { createSortFunction, resequenceData, normalizeCode } from '@/app/shared/utils/filterUtils'
 import { toast } from '@/app/components/ui/AppToast'
 
 function mapSapToMaterial(
   raw: any[],
   facilityMap: Record<string, { is_facility: boolean; facility_type: string }>
 ): MaterialListData[] {
+  // SAP CHAR fields (MATNR) can arrive space-padded or without leading zeros,
+  // which broke the naive facilityMap[MATNR] lookup and showed everything as
+  // Non-Fasilitas. Build a resilient index keyed by both the raw key and its
+  // zero-stripped form, then look up by trimmed + normalized MATNR — the same
+  // pattern already used on the Mutasi/Stok pages.
+  const lookup: Record<string, { is_facility: boolean; facility_type: string }> = {}
+  Object.entries(facilityMap).forEach(([k, v]) => {
+    lookup[k] = v
+    lookup[normalizeCode(k)] = v
+  })
+
   return raw.map((item, idx) => {
-    const matnr = item.MATNR ?? ''
-    const setting = facilityMap[matnr]
+    const matnr = String(item.MATNR ?? '').trim()
+    const setting = lookup[matnr] ?? lookup[normalizeCode(matnr)]
     const isFacility = setting ? Boolean(setting.is_facility) : false
 
     return {
