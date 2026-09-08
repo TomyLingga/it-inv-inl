@@ -36,7 +36,10 @@ function mapSapToPemasukan(raw: any[]): PemasukanData[] {
   return raw.map((item, idx) => {
     const nilaiBarang = Number(item.NILAIBRG) || 0;
     const jumlahBarang = Number(item.JUMLAH) || 0;
-    const wkurs = Number(item.WKURS) || 1;
+    const mataUangDokumen = (item.DOC_WAERS ?? 'IDR').toString().trim() || 'IDR';
+    // SAP publishes the USD rate with a 1:1000 factor, so scale it back to IDR per USD.
+    const rawKurs = Number(item.WKURS) || 1;
+    const wkurs = mataUangDokumen === 'USD' ? rawKurs * 1000 : rawKurs;
     const nilaiBarangLokal = nilaiBarang * wkurs;
 
     return {
@@ -58,7 +61,7 @@ function mapSapToPemasukan(raw: any[]): PemasukanData[] {
       satuan: item.SATUAN ?? '',
       jumlah: jumlahBarang,
       nilaiBarang: nilaiBarang,
-      mataUangDokumen: item.DOC_WAERS ?? 'IDR',
+      mataUangDokumen: mataUangDokumen,
       mataUangLokal: item.WAERS ?? 'IDR',
       kursDokumen: wkurs,
       nilaiBarangLokal: nilaiBarangLokal,
