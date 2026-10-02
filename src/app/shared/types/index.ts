@@ -224,6 +224,9 @@ export interface MutasiData extends BaseData {
   itemPo: number         // EBELP - Nomor Item PO
   kodeVendor: string     // LIFNR - Kode Vendor
   customer: string       // KUNNR - Kode Pelanggan / Konsumen
+  nomorSO: string        // VBELN - Sales Order / Delivery (dari data Pengeluaran)
+  namaMitra: string      // Nama Vendor/Supplier atau Customer/Buyer (dari data Pemasukan/Pengeluaran)
+  peranMitra: '' | 'Vendor' | 'Customer' // Peran mitra pada transaksi ini
   penerimaBarang: string // WEMPF - Referensi Penerima Barang
   orderNo: string        // AUFNR - Production / Internal Order
   costCenter: string     // KOSTL - Cost Center

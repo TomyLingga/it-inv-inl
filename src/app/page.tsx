@@ -23,7 +23,7 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState<boolean>(true)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const { isAuthenticated, loading: authLoading, login } = useAuth()
+  const { isAuthenticated, loading: authLoading, login, authError } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
@@ -72,10 +72,10 @@ export default function LoginPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
-          {error && (
+          {(authError || error) && (
             <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 px-4 py-3 rounded-xl text-sm flex items-center gap-2 font-medium">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
-              <span>{error}</span>
+              <span>{authError || error}</span>
             </div>
           )}
 

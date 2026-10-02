@@ -204,6 +204,28 @@ export const MUTASI_COLUMNS: ColumnConfig<MutasiData>[] = [
     },
   },
   {
+    key: 'namaMitra',
+    label: 'VENDOR / CUSTOMER',
+    filterable: true,
+    sortable: true,
+    render: (value, row) =>
+      value ? (
+        <div className="flex flex-col max-w-[220px]" title={value}>
+          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{value}</span>
+          <span
+            className={`text-[10px] font-bold ${
+              row.peranMitra === 'Customer' ? 'text-sky-600 dark:text-sky-400' : 'text-teal-600 dark:text-teal-400'
+            }`}
+          >
+            {row.peranMitra === 'Customer' ? 'Customer / Buyer' : 'Vendor / Supplier'}
+            {row.nomorSO ? ` · SO ${row.nomorSO}` : ''}
+          </span>
+        </div>
+      ) : (
+        <span className="text-slate-400 text-xs">-</span>
+      ),
+  },
+  {
     key: 'userSap',
     label: 'USER SAP',
     filterable: true,
@@ -252,7 +274,7 @@ export const MUTASI_CONFIG: PageConfig<MutasiData> = {
     { label: 'Arah & Alur', span: 3 },
     { label: 'Material', span: 4 },
     { label: 'Kuantitas & Nilai', span: 3 },
-    { label: 'Referensi & Audit', span: 3 },
+    { label: 'Referensi & Audit', span: 4 },
   ],
   filterConfig: {
     showGlobalSearch: true,

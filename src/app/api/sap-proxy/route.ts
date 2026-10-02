@@ -1,62 +1,42 @@
 // src/app/api/sap-proxy/route.ts
+//
+// Login / token refresh ke SAP. Semua logon melewati fetchSapToken (sapAuthGuard):
+// password lama/salah tidak akan di-retry otomatis sampai akun SAP terkunci.
+// Header `x-sap-login: 1` menandakan login eksplisit dari form login.
 
 import { NextRequest, NextResponse } from 'next/server'
-import https from 'https'
-import { URL } from 'url'
-
-const SAP_BASE_URL = process.env.SAP_BASE_URL!
-const SAP_CLIENT = process.env.SAP_CLIENT || '610'
+import { fetchSapToken, sapAuthErrorResponse } from '@/lib/sapRequest'
 
 export async function GET(request: NextRequest): Promise<Response> {
   const authHeader = request.headers.get('authorization')
+  const explicitLogin = request.headers.get('x-sap-login') === '1'
 
-  const target = new URL(`/zrestsap/get-token?sap-client=${SAP_CLIENT}`, SAP_BASE_URL)
+  if (!authHeader) {
+    return NextResponse.json({ error: 'UNAUTHORIZED', message: 'Missing credentials' }, { status: 401 })
+  }
 
-  return new Promise<Response>((resolve) => {
-    const options = {
-      hostname: target.hostname,
-      port: Number(target.port),
-      path: target.pathname + target.search,
-      method: 'GET',
-      headers: {
-        'Authorization': authHeader || '',
-        'x-csrf-token': 'fetch',
-      },
-      rejectUnauthorized: false,
-    }
+  const result = await fetchSapToken(authHeader, explicitLogin)
+  console.log('SAP Status:', result.status)
 
-    const req = https.request(options, (res) => {
-      console.log('SAP Status:', res.statusCode)
+  if (result.status === 401) {
+    return sapAuthErrorResponse(result.errorCode, result.message)
+  }
 
-      let data = ''
-      res.on('data', (chunk) => { data += chunk })
-      res.on('end', () => {
-        const csrfToken = res.headers['x-csrf-token']
-        const setCookie = res.headers['set-cookie']
+  if (result.status === 0) {
+    console.error('❌ SAP Proxy Error:', result.message)
+    return NextResponse.json(
+      { error: 'SAP connection failed', details: result.message },
+      { status: 500 }
+    )
+  }
 
-        resolve(
-          new NextResponse(JSON.stringify({ success: true }), {
-            status: res.statusCode || 200,
-            headers: {
-              'Content-Type': 'application/json',
-              'x-csrf-token': (csrfToken as string) || '',
-              ...(setCookie && { 'Set-Cookie': setCookie.join(', ') }),
-            },
-          })
-        )
-      })
-    })
-
-    req.on('error', (error) => {
-      console.error('❌ SAP Proxy Error:', error)
-      resolve(
-        NextResponse.json(
-          { error: 'SAP connection failed', details: error.message },
-          { status: 500 }
-        )
-      )
-    })
-
-    req.end()
+  const response = new NextResponse(JSON.stringify({ success: result.status < 300 }), {
+    status: result.status || 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'x-csrf-token': result.token || '',
+    },
   })
+  result.cookies.forEach((cookieStr) => response.headers.append('Set-Cookie', cookieStr))
+  return response
 }

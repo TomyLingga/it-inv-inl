@@ -141,6 +141,11 @@ function JourneyStep({
               {step.orderNo ? `Ord: ${step.orderNo}` : `PO: ${step.nomorPo}`}
             </span>
           )}
+          {step.namaMitra && (
+            <span className="font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[200px]" title={step.namaMitra}>
+              {step.peranMitra === 'Customer' ? 'Customer' : 'Vendor'}: {step.namaMitra}
+            </span>
+          )}
           {step.userSap && (
             <span className="inline-flex items-center gap-1 text-slate-400">
               <User className="w-3 h-3" /> {step.userSap}

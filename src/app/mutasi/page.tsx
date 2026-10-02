@@ -27,6 +27,7 @@ import {
   Workflow,
   Table2,
   RotateCcw,
+  GitBranch,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -54,12 +55,7 @@ import { MUTASI_CONFIG } from './config'
 import MutasiFlowView from './MutasiFlowView'
 import { buildBatchJourneys, isReversal } from './mutasiUtils'
 import { fadeInUp, modalBackdrop, modalPanel, useReducedMotionSafe } from '@/app/shared/utils/motion'
-import { fetchWithTokenRefresh } from '@/lib/fetchWithTokenRefresh'
-
-// ─── Format date for SAP: YYYYMMDD ───────────────────────────────────────────
-function toSapDate(isoDate: string): string {
-  return isoDate ? isoDate.replace(/-/g, '') : ''
-}
+import { loadMutasiWithPartners } from './mutasiData'
 
 function getTodayDateRange(): DateRange {
   const today = new Date().toISOString().split('T')[0]
@@ -70,181 +66,6 @@ function formatDateDisplay(isoDate: string): string {
   if (!isoDate) return '-'
   const d = new Date(isoDate)
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-function formatLocation(lgort: string, werks: string): string {
-  if (lgort && werks) return `Gudang ${lgort} (${werks})`
-  if (lgort) return `Gudang ${lgort}`
-  if (werks) return `Plant ${werks}`
-  return 'Gudang'
-}
-
-// ─── Route (Dari ➔ Ke) Resolver ─────────────────────────────────────────────
-function determineRoute(item: any): { asal: string; tujuan: string; alur: string } {
-  const bwart = (item.BWART ?? '').toString().trim()
-  const shkzg = (item.SHKZG ?? 'S').toString().toUpperCase()
-  const lgort = (item.LGORT ?? '').toString().trim()
-  const werks = (item.WERKS ?? '').toString().trim()
-  const lifnr = (item.LIFNR ?? '').toString().trim()
-  const ebeln = (item.EBELN ?? '').toString().trim()
-  const aufnr = (item.AUFNR ?? '').toString().trim()
-  const kostl = (item.KOSTL ?? '').toString().trim()
-  const kunnr = (item.KUNNR ?? '').toString().trim()
-  const umlgo = (item.UMLGO ?? '').toString().trim()
-  const umwrk = (item.UMWRK ?? '').toString().trim()
-
-  const curLoc = formatLocation(lgort, werks)
-  const destLoc = umlgo
-    ? (umwrk && umwrk !== werks ? `Gudang ${umlgo} (${umwrk})` : `Gudang ${umlgo}`)
-    : (umwrk && umwrk !== werks ? `Plant ${umwrk}` : '')
-
-  let asal = ''
-  let tujuan = ''
-
-  // 101, 103, 105 - Goods Receipt
-  if (['101', '103', '105'].includes(bwart)) {
-    if (ebeln) {
-      asal = `Vendor (PO ${ebeln})`
-      tujuan = curLoc
-    } else if (aufnr) {
-      asal = `Order Produksi (${aufnr})`
-      tujuan = curLoc
-    } else {
-      asal = lifnr ? `Vendor (${lifnr})` : 'Penerimaan Luar'
-      tujuan = curLoc
-    }
-  }
-  // 102, 104, 106, 122 - Reversal / Return
-  else if (['102', '104', '106', '122'].includes(bwart)) {
-    asal = curLoc
-    tujuan = ebeln ? `Retur PO (${ebeln})` : aufnr ? `Batal GR Produksi (${aufnr})` : 'Retur / Batal Penerimaan'
-  }
-  // 261, 262 - Consumption for Order (Produksi)
-  else if (bwart === '261') {
-    asal = curLoc
-    tujuan = aufnr ? `Proses Produksi (${aufnr})` : 'Proses Produksi'
-  } else if (bwart === '262') {
-    asal = aufnr ? `Proses Produksi (${aufnr})` : 'Proses Produksi'
-    tujuan = curLoc
-  }
-  // 201, 202 - Consumption for Cost Center
-  else if (bwart === '201') {
-    asal = curLoc
-    tujuan = kostl ? `Cost Center (${kostl})` : 'Pemakaian Biaya'
-  } else if (bwart === '202') {
-    asal = kostl ? `Cost Center (${kostl})` : 'Pemakaian Biaya'
-    tujuan = curLoc
-  }
-  // 301, 311, 303, 305, 313, 315 - Transfer Posting
-  else if (['301', '311', '303', '305', '313', '315'].includes(bwart)) {
-    if (shkzg === 'H') {
-      asal = curLoc
-      tujuan = destLoc ? destLoc : (umwrk && umwrk !== werks ? `Plant ${umwrk}` : `Transfer Antar Gudang (${werks})`)
-    } else {
-      asal = destLoc ? destLoc : (umwrk && umwrk !== werks ? `Plant ${umwrk}` : `Transfer Antar Gudang (${werks})`)
-      tujuan = curLoc
-    }
-  }
-  // 601, 602 - Goods Issue for Delivery / Sales
-  else if (bwart === '601') {
-    asal = curLoc
-    tujuan = kunnr ? `Pelanggan (${kunnr})` : 'Pengeluaran / Delivery'
-  } else if (bwart === '602') {
-    asal = kunnr ? `Pelanggan (${kunnr})` : 'Retur Pelanggan'
-    tujuan = curLoc
-  }
-  // 551, 552 - Scrap / Penyesuaian Rusak
-  else if (['551', '552'].includes(bwart)) {
-    if (bwart === '551') {
-      asal = curLoc
-      tujuan = 'Scrap / Pemusnahan'
-    } else {
-      asal = 'Scrap / Pemusnahan'
-      tujuan = curLoc
-    }
-  }
-  // 561, 562 - Initial Stock / Saldo Awal
-  else if (['561', '562'].includes(bwart)) {
-    asal = 'Saldo Awal / Inisialisasi'
-    tujuan = curLoc
-  }
-  // Fallback based on Debit/Credit
-  else {
-    if (shkzg === 'S') {
-      asal = ebeln ? `PO ${ebeln}` : aufnr ? `Order ${aufnr}` : lifnr ? `Vendor ${lifnr}` : 'Penerimaan'
-      tujuan = curLoc
-    } else {
-      asal = curLoc
-      tujuan = aufnr ? `Order ${aufnr}` : kostl ? `Cost Center ${kostl}` : kunnr ? `Pelanggan ${kunnr}` : 'Pengeluaran'
-    }
-  }
-
-  return {
-    asal,
-    tujuan,
-    alur: `${asal} ➔ ${tujuan}`,
-  }
-}
-
-// ─── SAP response → MutasiData mapper ────────────────────────────────────────
-function mapSapToMutasi(raw: any[]): MutasiData[] {
-  return raw.map((item, idx) => {
-    const shkzg = (item.SHKZG ?? 'S').toString().toUpperCase()
-    const isMasuk = shkzg === 'S'
-    const arahMutasi = isMasuk ? 'Masuk' : 'Keluar'
-    const rawQty = Number(item.ERFMG ?? item.MENGE ?? item.BSTMG) || 0
-    const rawVal = Number(item.DMBTR) || 0
-
-    const route = determineRoute(item)
-    const headerText = (item.BKTXT ?? '').toString().trim()
-    const itemText = (item.SGTXT ?? '').toString().trim()
-    const keterangan = itemText || headerText || '-'
-
-    return {
-      no: idx + 1,
-      postingDate: item.BUDAT ?? '',
-      docDate: item.BLDAT ?? '',
-      entryDate: item.CPUDT ?? '',
-      entryTime: item.CPUTM ?? '',
-      nomorDokMaterial: item.MBLNR ?? '',
-      tahunDokumen: Number(item.MJAHR) || new Date().getFullYear(),
-      itemDokumen: Number(item.ZEILE) || 1,
-      movementType: item.BWART ?? '',
-      movementText: item.BTEXT ?? '',
-      transType: item.VGART ?? '',
-      shkzg,
-      arahMutasi,
-      asalMutasi: route.asal,
-      tujuanMutasi: route.tujuan,
-      alurMutasi: route.alur,
-      kodeBarang: item.MATNR ?? '',
-      namaBarang: item.MAKTX ?? '',
-      batch: item.CHARG ?? '',
-      valuationType: item.BWTAR ?? '',
-      plant: item.WERKS ?? '',
-      plantName: item.NAME1 ?? '',
-      storageLocation: item.LGORT ?? '',
-      destPlant: item.UMWRK ?? '',
-      destStorageLocation: item.UMLGO ?? '',
-      jumlah: rawQty,
-      satuan: item.ERFME ?? item.MEINS ?? item.BSTME ?? 'KG',
-      nilaiMutasi: rawVal,
-      mataUang: item.WAERS ?? 'IDR',
-      nomorPo: item.EBELN ?? '',
-      itemPo: Number(item.EBELP) || 0,
-      kodeVendor: item.LIFNR ?? '',
-      customer: item.KUNNR ?? '',
-      penerimaBarang: item.WEMPF ?? '',
-      orderNo: item.AUFNR ?? '',
-      costCenter: item.KOSTL ?? '',
-      userSap: item.USNAM ?? '',
-      headerText,
-      itemText,
-      keterangan,
-      grupMaterial: item.ZZMATKL ?? '',
-      namaGrupMaterial: item.ZZWGBEZ ?? '',
-    }
-  })
 }
 
 // ─── Modal Traceability Detail ───────────────────────────────────────────────
@@ -466,12 +287,26 @@ function TraceabilityModal({ data, allRows, reduce, onClose }: TraceabilityModal
                 <span>Referensi Transaksi & Order</span>
               </div>
               <div className="space-y-1 text-xs">
+                {data.namaMitra && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-400 shrink-0">
+                      {data.peranMitra === 'Customer' ? 'Customer / Buyer:' : 'Vendor / Supplier:'}
+                    </span>
+                    <span className="font-bold text-right text-slate-800 dark:text-slate-100">{data.namaMitra}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-slate-400">Purchase Order (PO):</span>
                   <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">
                     {data.nomorPo ? `${data.nomorPo} (Item ${data.itemPo})` : '-'}
                   </span>
                 </div>
+                {data.nomorSO && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Sales Order (SO):</span>
+                    <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">{data.nomorSO}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-slate-400">Order Produksi (AUFNR):</span>
                   <span className="font-mono font-bold text-amber-600 dark:text-amber-400">{data.orderNo || '-'}</span>
@@ -482,8 +317,14 @@ function TraceabilityModal({ data, allRows, reduce, onClose }: TraceabilityModal
                 </div>
                 {data.kodeVendor && (
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Vendor / Supplier:</span>
+                    <span className="text-slate-400">Kode Vendor (LIFNR):</span>
                     <span className="font-mono text-slate-700 dark:text-slate-300">{data.kodeVendor}</span>
+                  </div>
+                )}
+                {data.customer && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Kode Customer (KUNNR):</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300">{data.customer}</span>
                   </div>
                 )}
               </div>
@@ -540,7 +381,16 @@ function TraceabilityModal({ data, allRows, reduce, onClose }: TraceabilityModal
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex justify-end shrink-0">
+        <div className="px-6 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex justify-end gap-2 shrink-0">
+          {(data.batch || data.orderNo) && (
+            <a
+              href={`/traceability?q=${encodeURIComponent(data.batch || data.orderNo)}&plant=${encodeURIComponent(data.plant || '')}`}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors"
+            >
+              <GitBranch className="w-3.5 h-3.5" />
+              Telusuri hulu & hilir
+            </a>
+          )}
           <button
             onClick={onClose}
             className="px-5 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold transition-all hover:opacity-90 cursor-pointer"
@@ -612,55 +462,11 @@ export default function MutasiPage() {
     setIsFetching(true)
     setFetchError(null)
 
-    const requestBody = {
-      I_LAYOUT: '/INL_PROD',
-      S_WERKS: [
-        {
-          SIGN: 'I',
-          OPTION: 'EQ',
-          LOW: selectedPlant || 'IN01',
-          HIGH: '',
-        },
-      ],
-      S_BUDAT: [
-        {
-          SIGN: 'I',
-          OPTION: dateRange.start && dateRange.end && dateRange.start !== dateRange.end ? 'BT' : 'EQ',
-          LOW: toSapDate(dateRange.start),
-          HIGH: dateRange.start !== dateRange.end ? toSapDate(dateRange.end) : '',
-        },
-      ],
-      S_LGORT: [
-        {
-          SIGN: '',
-          OPTION: '',
-          LOW: '',
-          HIGH: '',
-        },
-      ],
-      S_CHARG: [
-        {
-          SIGN: '',
-          OPTION: '',
-          LOW: '',
-          HIGH: '',
-        },
-      ],
-      S_BWART: [
-        {
-          SIGN: '',
-          OPTION: '',
-          LOW: '',
-          HIGH: '',
-        },
-      ],
-    }
-
     try {
-      const { data: rawData, error, didLogout } = await fetchWithTokenRefresh<any[]>({
-        url: '/api/mutasi',
-        method: 'POST',
-        body: requestBody,
+      const { rows: mapped, error, didLogout } = await loadMutasiWithPartners({
+        plant: selectedPlant || 'IN01',
+        start: dateRange.start,
+        end: dateRange.end,
         csrfToken: csrfToken!,
         refreshToken,
         logout,
@@ -672,9 +478,6 @@ export default function MutasiPage() {
         setFetchError(error)
         return
       }
-
-      const rawArray: any[] = Array.isArray(rawData) ? rawData : []
-      const mapped = mapSapToMutasi(rawArray)
 
       // Filter hanya material dengan fasilitas kepabeanan (is_facility = true)
       try {

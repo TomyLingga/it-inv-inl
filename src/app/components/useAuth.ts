@@ -2,12 +2,21 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
+import { SAP_CREDENTIAL_REJECTED_EVENT } from '@/lib/fetchWithTokenRefresh'
 
 interface AuthState {
   csrfToken: string | null
   isAuthenticated: boolean
   userName: string
   loading: boolean
+  /** Pesan kenapa sesi diakhiri / login ditolak (ditampilkan di halaman login) */
+  authError: string | null
+}
+
+interface TokenResult {
+  token: string | null
+  /** Terisi bila SAP menolak kredensial (401) — JANGAN retry dengan password yang sama */
+  rejected?: { code: string; message: string }
 }
 
 interface AuthContextType extends AuthState {
@@ -15,6 +24,8 @@ interface AuthContextType extends AuthState {
   logout: (clearStorage?: boolean) => void
   checkAuth: () => Promise<boolean>
   refreshToken: () => Promise<string | null>
+  /** Dipanggil saat SAP menolak password tersimpan: hapus kredensial & stop semua auto-login */
+  handleCredentialRejected: (message?: string) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -23,6 +34,23 @@ const AuthContext = createContext<AuthContextType | null>(null)
 const TOKEN_REFRESH_INTERVAL_MS = 20 * 60 * 1000
 const MAX_REFRESH_FAILURES = 3
 const API_BASE = '/api/sap-proxy'
+const AUTH_ERROR_KEY = 'sap_auth_error'
+const DEFAULT_REJECTED_MSG =
+  'Password SAP tidak valid (mungkin sudah diganti). Silakan login ulang dengan password terbaru.'
+
+function readStoredAuthError(): string | null {
+  try {
+    return typeof window !== 'undefined' ? localStorage.getItem(AUTH_ERROR_KEY) : null
+  } catch {
+    return null
+  }
+}
+
+function clearStoredCredentials() {
+  localStorage.removeItem('sap_csrf_token')
+  localStorage.removeItem('sap_username')
+  localStorage.removeItem('sap_password_enc')
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
@@ -30,6 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: false,
     userName: '',
     loading: true,
+    authError: null,
   })
 
   const credentialsRef = useRef<{ username: string; password: string } | null>(null)
@@ -48,20 +77,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /** Ambil CSRF token dari SAP menggunakan Basic Auth */
   const fetchCsrfToken = useCallback(async (
     username: string,
-    password: string
-  ): Promise<string | null> => {
+    password: string,
+    explicitLogin = false
+  ): Promise<TokenResult> => {
     try {
       const response = await fetch(API_BASE, {
         method: 'GET',
         credentials: 'include',
         headers: {
           'Authorization': `Basic ${btoa(`${username}:${password}`)}`,
+          ...(explicitLogin ? { 'x-sap-login': '1' } : {}),
         },
       })
-      if (!response.ok) return null
-      return response.headers.get('x-csrf-token')
+      if (response.status === 401) {
+        const json = await response.json().catch(() => ({})) as any
+        return {
+          token: null,
+          rejected: {
+            code: json?.error || 'INVALID_CREDENTIALS',
+            message: json?.message || DEFAULT_REJECTED_MSG,
+          },
+        }
+      }
+      if (!response.ok) return { token: null }
+      return { token: response.headers.get('x-csrf-token') }
     } catch {
-      return null
+      return { token: null }
     }
   }, [])
 
@@ -70,16 +111,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     credentialsRef.current = null
 
     if (clearStorage) {
-      localStorage.removeItem('sap_csrf_token')
-      localStorage.removeItem('sap_username')
-      localStorage.removeItem('sap_password_enc')
+      clearStoredCredentials()
     }
 
+    setState(prev => ({
+      csrfToken: null,
+      isAuthenticated: false,
+      userName: '',
+      loading: false,
+      authError: clearStorage ? null : prev.authError,
+    }))
+  }, [stopRefreshInterval])
+
+  /**
+   * SAP menolak password tersimpan (password diganti / akun dikunci).
+   * Hapus kredensial dari storage SEKARANG supaya tidak ada auto-login lagi
+   * (interval, tab lain, reload halaman) yang menambah hitungan salah password di SAP.
+   */
+  const handleCredentialRejected = useCallback((message?: string) => {
+    const msg = message || DEFAULT_REJECTED_MSG
+    console.error('❌ SAP credential rejected — stopping all auto re-login:', msg)
+    stopRefreshInterval()
+    credentialsRef.current = null
+    try {
+      clearStoredCredentials()
+      localStorage.setItem(AUTH_ERROR_KEY, msg)
+    } catch {
+      // ignore storage errors
+    }
     setState({
       csrfToken: null,
       isAuthenticated: false,
       userName: '',
       loading: false,
+      authError: msg,
     })
   }, [stopRefreshInterval])
 
@@ -94,20 +159,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       console.log('🔄 Auto-refreshing SAP token...')
-      const newToken = await fetchCsrfToken(creds.username, creds.password)
+      const { token: newToken, rejected } = await fetchCsrfToken(creds.username, creds.password)
+
+      if (rejected) {
+        // Password ditolak SAP → stop seketika, jangan coba lagi
+        handleCredentialRejected(rejected.message)
+        return
+      }
 
       if (newToken) {
         failureCountRef.current = 0
         localStorage.setItem('sap_csrf_token', newToken)
         setState(prev => ({ ...prev, csrfToken: newToken, isAuthenticated: true }))
       } else {
+        // Hanya gangguan jaringan / server — boleh dicoba lagi di interval berikutnya
         failureCountRef.current += 1
         if (failureCountRef.current >= MAX_REFRESH_FAILURES) {
           logout(true)
         }
       }
     }, TOKEN_REFRESH_INTERVAL_MS)
-  }, [stopRefreshInterval, fetchCsrfToken, logout])
+  }, [stopRefreshInterval, fetchCsrfToken, logout, handleCredentialRejected])
 
   /**
    * Manual token refresh (deduplicated — hanya 1 request aktif)
@@ -132,7 +204,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const refreshPromise = (async () => {
       try {
         console.log('🔄 Single deduplicated token refresh triggered...')
-        const newToken = await fetchCsrfToken(creds!.username, creds!.password)
+        const { token: newToken, rejected } = await fetchCsrfToken(creds!.username, creds!.password)
+        if (rejected) {
+          handleCredentialRejected(rejected.message)
+          return null
+        }
         if (newToken) {
           failureCountRef.current = 0
           localStorage.setItem('sap_csrf_token', newToken)
@@ -147,7 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     isRefreshingRef.current = refreshPromise
     return refreshPromise
-  }, [fetchCsrfToken])
+  }, [fetchCsrfToken, handleCredentialRejected])
 
   const checkAuth = useCallback(async (): Promise<boolean> => {
     try {
@@ -159,44 +235,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const savedPass = atob(savedPassEnc)
         credentialsRef.current = { username: savedUser, password: savedPass }
 
-        // Set state awal dari localStorage
+        // Verifikasi password tersimpan ke SAP DULU (1x saja) sebelum menandai
+        // sesi aktif. Kalau state di-set authenticated lebih awal, halaman langsung
+        // menembak request data secara paralel dengan password yang mungkin sudah
+        // diganti → beberapa salah-password sekaligus di SAP.
+        const { token: freshToken, rejected } = await fetchCsrfToken(savedUser, savedPass)
+        if (rejected) {
+          handleCredentialRejected(rejected.message)
+          return false
+        }
+        if (freshToken) {
+          localStorage.setItem('sap_csrf_token', freshToken)
+        }
+
+        // Token baru, atau token tersimpan bila SAP sementara tidak bisa dihubungi
         setState({
-          csrfToken: savedToken,
+          csrfToken: freshToken || savedToken,
           isAuthenticated: true,
           userName: savedUser,
           loading: false,
+          authError: null,
         })
-
-        // Ambil token & cookie baru yang valid dari SAP (1x saja)
-        const freshToken = await fetchCsrfToken(savedUser, savedPass)
-        if (freshToken) {
-          localStorage.setItem('sap_csrf_token', freshToken)
-          setState(prev => ({ ...prev, csrfToken: freshToken, isAuthenticated: true, loading: false }))
-        }
 
         startRefreshInterval(savedUser, savedPass)
         return true
       }
 
-      setState(prev => ({ ...prev, loading: false }))
+      setState(prev => ({ ...prev, loading: false, authError: readStoredAuthError() }))
       return false
     } catch (error) {
       console.error('Check auth error:', error)
       setState(prev => ({ ...prev, loading: false }))
       return false
     }
-  }, [fetchCsrfToken, startRefreshInterval])
+  }, [fetchCsrfToken, startRefreshInterval, handleCredentialRejected])
 
   const login = useCallback(async (username: string, password: string): Promise<boolean> => {
     try {
       setState(prev => ({ ...prev, loading: true }))
-      const csrfToken = await fetchCsrfToken(username, password)
+      const { token: csrfToken, rejected } = await fetchCsrfToken(username, password, true)
 
       if (!csrfToken) {
-        setState(prev => ({ ...prev, loading: false }))
+        setState(prev => ({
+          ...prev,
+          loading: false,
+          authError: rejected?.message || 'Login gagal. Server SAP tidak dapat dihubungi.',
+        }))
         return false
       }
 
+      try { localStorage.removeItem(AUTH_ERROR_KEY) } catch { /* ignore */ }
       localStorage.setItem('sap_csrf_token', csrfToken)
       localStorage.setItem('sap_username', username)
       localStorage.setItem('sap_password_enc', btoa(password))
@@ -208,6 +296,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: true,
         userName: username,
         loading: false,
+        authError: null,
       })
 
       startRefreshInterval(username, password)
@@ -224,9 +313,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => stopRefreshInterval()
   }, [])
 
+  // Sinkron antar tab: bila tab lain logout / mendeteksi password ditolak,
+  // tab ini ikut berhenti (tidak lanjut auto-refresh dengan password lama).
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'sap_password_enc' && !e.newValue && credentialsRef.current) {
+        const msg = readStoredAuthError()
+        if (msg) handleCredentialRejected(msg)
+        else logout(false)
+      }
+    }
+    // Dipancarkan fetchWithTokenRefresh saat API data mendapat INVALID_CREDENTIALS
+    const onRejected = (e: Event) => {
+      handleCredentialRejected((e as CustomEvent<{ message?: string }>).detail?.message)
+    }
+    window.addEventListener('storage', onStorage)
+    window.addEventListener(SAP_CREDENTIAL_REJECTED_EVENT, onRejected)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener(SAP_CREDENTIAL_REJECTED_EVENT, onRejected)
+    }
+  }, [handleCredentialRejected, logout])
+
   return React.createElement(
     AuthContext.Provider,
-    { value: { ...state, login, logout, checkAuth, refreshToken } },
+    { value: { ...state, login, logout, checkAuth, refreshToken, handleCredentialRejected } },
     children
   )
 }

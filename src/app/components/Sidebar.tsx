@@ -29,6 +29,7 @@ import {
   Building2,
   FolderOpen,
   ArrowLeftRight,
+  GitBranch,
 } from 'lucide-react'
 
 import Topbar from '@/app/components/Topbar'
@@ -61,6 +62,7 @@ function SidebarPanel() {
     { href: '/pengeluaran', label: 'Pengeluaran', icon: ArrowUpFromLine },
     { href: '/stok', label: 'Stok', icon: Package },
     { href: '/mutasi', label: 'Mutasi', icon: ArrowLeftRight },
+    { href: '/traceability', label: 'Traceability', icon: GitBranch },
     { href: '/dokumen', label: 'Dokumen', icon: FolderOpen },
   ]
 
