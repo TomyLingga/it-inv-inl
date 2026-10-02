@@ -253,116 +253,134 @@ function collectExternal(lot: Lot, direction: TraceDirection): ExternalFlow[] {
 }
 
 // ─── Tree builders ────────────────────────────────────────────────────────────
+//
+// The genealogy is a graph, not a tree: continuous/process orders share lots
+// (an output that is also an input, the same batch feeding many orders…).
+// Expanding every occurrence blows up exponentially, so each lot and each order
+// is expanded ONCE per tree; later occurrences become a reference leaf. A node
+// budget is a last-resort safety net.
 
-let idSeq = 0
-const nid = (p: string) => `${p}-${++idSeq}`
+const MAX_TREE_NODES = 4000
 
-function traceLot(
-  g: TraceGraph,
-  lotKey: string,
-  direction: TraceDirection,
-  depth: number,
-  path: Set<string>,
-  qty?: number,
-  relation?: string
-): TraceNode {
-  const node: TraceNode = { kind: 'lot', id: nid('lot'), lotKey, qty, relation, children: [] }
+interface TraceContext {
+  g: TraceGraph
+  direction: TraceDirection
+  expanded: Set<string> // 'lot:<key>' / 'order:<no>' already expanded in this tree
+  path: Set<string>     // nodes on the current branch (cycle detection)
+  count: number
+  seq: number
+}
+
+function nid(ctx: TraceContext, p: string): string {
+  ctx.count += 1
+  return `${p}-${++ctx.seq}`
+}
+
+function endNode(ctx: TraceContext, label: string, tone: 'muted' | 'warn'): TraceNode {
+  return { kind: 'end', id: nid(ctx, 'end'), label, tone, children: [] }
+}
+
+/** Returns a leaf explaining why `key` is not expanded here, or null to expand it. */
+function stopReason(ctx: TraceContext, key: string, depth: number): TraceNode | null {
+  if (ctx.path.has(key)) return endNode(ctx, 'Siklus — sudah muncul di jalur atas', 'warn')
+  if (ctx.expanded.has(key)) return endNode(ctx, 'Sudah diuraikan di cabang lain — klik ⌖ untuk menjadikannya fokus', 'muted')
+  if (depth >= MAX_TRACE_DEPTH) return endNode(ctx, 'Batas kedalaman tercapai — klik ⌖ untuk melanjutkan dari sini', 'warn')
+  if (ctx.count >= MAX_TREE_NODES) return endNode(ctx, 'Cabang terlalu banyak — klik ⌖ untuk menelusuri dari sini', 'warn')
+  return null
+}
+
+function traceLot(ctx: TraceContext, lotKey: string, depth: number, qty?: number, relation?: string): TraceNode {
+  const { g, direction } = ctx
+  const node: TraceNode = { kind: 'lot', id: nid(ctx, 'lot'), lotKey, qty, relation, children: [] }
   const lot = g.lots.get(lotKey)
   if (!lot) return node
 
-  if (path.has(lotKey)) {
-    node.children.push({ kind: 'end', id: nid('end'), label: 'Siklus — lot ini sudah muncul di jalur atas', tone: 'warn', children: [] })
+  const key = `lot:${lotKey}`
+  const stop = stopReason(ctx, key, depth)
+  if (stop) {
+    node.children.push(stop)
     return node
   }
-  if (depth >= MAX_TRACE_DEPTH) {
-    node.children.push({ kind: 'end', id: nid('end'), label: 'Batas kedalaman tercapai — fokuskan pada lot ini untuk melanjutkan', tone: 'warn', children: [] })
-    return node
-  }
-
-  const nextPath = new Set(path)
-  nextPath.add(lotKey)
+  ctx.expanded.add(key)
+  ctx.path.add(key)
 
   const orderNos = (direction === 'backward' ? g.producedBy : g.consumedIn).get(lotKey)
   orderNos?.forEach((orderNo) => {
-    node.children.push(traceOrder(g, orderNo, direction, depth + 1, nextPath))
+    node.children.push(traceOrder(ctx, orderNo, depth + 1))
   })
 
   const linked = (direction === 'backward' ? g.convertedFrom : g.convertedTo).get(lotKey)
   linked?.forEach((other) => {
     node.children.push(
-      traceLot(g, other, direction, depth + 1, nextPath, undefined, direction === 'backward' ? 'Transfer / konversi dari' : 'Transfer / konversi ke')
+      traceLot(ctx, other, depth + 1, undefined, direction === 'backward' ? 'Transfer / konversi dari' : 'Transfer / konversi ke')
     )
   })
 
   collectExternal(lot, direction).forEach((flow) => {
-    node.children.push({ kind: 'external', id: nid('ext'), flow, children: [] })
+    node.children.push({ kind: 'external', id: nid(ctx, 'ext'), flow, children: [] })
   })
 
   if (direction === 'forward') {
     const remaining = lot.totalIn - lot.totalOut
     if (remaining > 0.0000001 && node.children.length > 0) {
-      node.children.push({
-        kind: 'end',
-        id: nid('end'),
-        label: `Sisa ±${remaining.toLocaleString('id-ID', { maximumFractionDigits: 3 })} ${lot.satuan} belum keluar (dalam periode data)`,
-        tone: 'muted',
-        children: [],
-      })
+      node.children.push(
+        endNode(ctx, `Sisa ±${remaining.toLocaleString('id-ID', { maximumFractionDigits: 3 })} ${lot.satuan} belum keluar (dalam periode data)`, 'muted')
+      )
     }
   }
 
   if (node.children.length === 0) {
-    node.children.push({
-      kind: 'end',
-      id: nid('end'),
-      label:
-        direction === 'backward'
-          ? 'Asal lot tidak ditemukan pada periode data — perluas rentang tanggal'
-          : 'Belum dipakai / dikeluarkan pada periode data (masih di stok)',
-      tone: direction === 'backward' ? 'warn' : 'muted',
-      children: [],
-    })
+    node.children.push(
+      direction === 'backward'
+        ? endNode(ctx, 'Asal lot tidak ditemukan pada periode data — perluas rentang tanggal', 'warn')
+        : endNode(ctx, 'Belum dipakai / dikeluarkan pada periode data (masih di stok)', 'muted')
+    )
   }
 
+  ctx.path.delete(key)
   return node
 }
 
-function traceOrder(
-  g: TraceGraph,
-  orderNo: string,
-  direction: TraceDirection,
-  depth: number,
-  path: Set<string>
-): TraceNode {
+function traceOrder(ctx: TraceContext, orderNo: string, depth: number): TraceNode {
+  const { g, direction } = ctx
   const order = g.orders.get(orderNo)
-  const node: TraceNode = { kind: 'order', id: nid('ord'), orderNo, date: order?.firstDate ?? '', children: [] }
+  const node: TraceNode = { kind: 'order', id: nid(ctx, 'ord'), orderNo, date: order?.firstDate ?? '', children: [] }
   if (!order) return node
+
+  const key = `order:${orderNo}`
+  const stop = stopReason(ctx, key, depth)
+  if (stop) {
+    node.children.push(stop)
+    return node
+  }
+  ctx.expanded.add(key)
+  ctx.path.add(key)
 
   const flows = direction === 'backward' ? order.inputs : order.outputs
   flows.forEach((flow, lotKey) => {
     node.children.push(
-      traceLot(g, lotKey, direction, depth + 1, path, flow.qty, direction === 'backward' ? 'Bahan masuk produksi' : 'Hasil produksi')
+      traceLot(ctx, lotKey, depth + 1, flow.qty, direction === 'backward' ? 'Bahan masuk produksi' : 'Hasil produksi')
     )
   })
   if (node.children.length === 0) {
-    node.children.push({
-      kind: 'end',
-      id: nid('end'),
-      label: direction === 'backward' ? 'Tidak ada konsumsi bahan tercatat pada periode data' : 'Belum ada hasil produksi tercatat pada periode data',
-      tone: 'warn',
-      children: [],
-    })
+    node.children.push(
+      endNode(
+        ctx,
+        direction === 'backward' ? 'Tidak ada konsumsi bahan tercatat pada periode data' : 'Belum ada hasil produksi tercatat pada periode data',
+        'warn'
+      )
+    )
   }
+
+  ctx.path.delete(key)
   return node
 }
 
 export type TraceRoot = { type: 'lot'; lotKey: string } | { type: 'order'; orderNo: string }
 
 export function buildTraceTree(g: TraceGraph, root: TraceRoot, direction: TraceDirection): TraceNode {
-  idSeq = 0
-  return root.type === 'lot'
-    ? traceLot(g, root.lotKey, direction, 0, new Set())
-    : traceOrder(g, root.orderNo, direction, 0, new Set())
+  const ctx: TraceContext = { g, direction, expanded: new Set(), path: new Set(), count: 0, seq: 0 }
+  return root.type === 'lot' ? traceLot(ctx, root.lotKey, 0) : traceOrder(ctx, root.orderNo, 0)
 }
 
 // ─── Summaries (flat list of what is at the ends of the tree) ────────────────

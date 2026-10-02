@@ -150,7 +150,7 @@ function NodeCard({ node, graph, onFocus }: Omit<NodeProps, 'depth'>) {
 
 function TreeNodeView({ node, graph, depth, onFocus }: NodeProps) {
   // Deep levels start collapsed so long chains stay readable
-  const [open, setOpen] = useState(depth < 6)
+  const [open, setOpen] = useState(depth < 2)
   const hasChildren = node.children.length > 0
 
   return (
