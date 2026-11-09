@@ -4,6 +4,7 @@ import React from 'react'
 import { MutasiData, ColumnConfig, PageConfig } from '@/app/shared/types'
 import { ArrowDownLeft, ArrowUpRight, ArrowRight, RotateCcw } from 'lucide-react'
 import { isReversal } from './mutasiUtils'
+import { slocText } from './mutasiData'
 
 export const MUTASI_COLUMNS: ColumnConfig<MutasiData>[] = [
   { key: 'no', label: 'NO', filterable: false, sortable: false, width: '8', sticky: 'left', stickyWidth: 52 },
@@ -133,10 +134,24 @@ export const MUTASI_COLUMNS: ColumnConfig<MutasiData>[] = [
     filterable: true,
     sortable: true,
     render: (value, row) => (
-      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300" title={slocText(value, row.storageLocationName)}>
         {row.plant ? `${row.plant} - ` : ''}{value || '-'}
       </span>
     ),
+  },
+  {
+    key: 'storageLocationName',
+    label: 'NAMA LOKASI',
+    filterable: true,
+    sortable: true,
+    render: (value) =>
+      value ? (
+        <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded whitespace-nowrap">
+          {value}
+        </span>
+      ) : (
+        <span className="text-slate-400 text-xs">-</span>
+      ),
   },
   {
     key: 'jumlah',

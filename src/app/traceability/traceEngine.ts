@@ -376,9 +376,11 @@ function traceOrder(ctx: TraceContext, orderNo: string, depth: number): TraceNod
   return node
 }
 
-export type TraceRoot = { type: 'lot'; lotKey: string } | { type: 'order'; orderNo: string }
+export type TreeRoot = { type: 'lot'; lotKey: string } | { type: 'order'; orderNo: string }
+/** Starting point of a trace; 'delivery' = an outgoing SO / PO / material document (alur view only). */
+export type TraceRoot = TreeRoot | { type: 'delivery'; ref: string; label?: string }
 
-export function buildTraceTree(g: TraceGraph, root: TraceRoot, direction: TraceDirection): TraceNode {
+export function buildTraceTree(g: TraceGraph, root: TreeRoot, direction: TraceDirection): TraceNode {
   const ctx: TraceContext = { g, direction, expanded: new Set(), path: new Set(), count: 0, seq: 0 }
   return root.type === 'lot' ? traceLot(ctx, root.lotKey, 0) : traceOrder(ctx, root.orderNo, 0)
 }

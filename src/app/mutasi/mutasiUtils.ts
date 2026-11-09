@@ -45,7 +45,7 @@ export interface BatchJourney {
 }
 
 const RECEIPT_BWART = new Set(['101', '103', '105'])
-const TRANSFER_BWART = new Set(['301', '303', '305', '311', '313', '315'])
+const TRANSFER_BWART = new Set(['301', '303', '305', '311', '313', '315', 'Z23', 'Z24', 'Z25'])
 const PROD_CONSUME_BWART = new Set(['261', '221', '231', '241'])
 const PROD_RECEIPT_BWART = new Set(['101', '531', '521', '101'])
 const ISSUE_BWART = new Set(['201', '551', '601', '901'])

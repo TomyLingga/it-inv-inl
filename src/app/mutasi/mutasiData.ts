@@ -1,11 +1,13 @@
 // src/app/mutasi/mutasiData.ts
 //
 // Loading + mapping of MB51 goods movements (shared by the Mutasi and
-// Traceability pages), enriched with the vendor / customer name taken from the
-// Pemasukan (incoming) and Pengeluaran (outgoing) customs reports — MB51 itself
-// only carries the LIFNR / KUNNR codes.
+// Traceability pages). MB51 only carries codes, so rows are enriched with:
+//   • vendor / customer name + customs document (BC, AJU, pendaftaran) from the
+//     Pemasukan (incoming) and Pengeluaran (outgoing) customs reports
+//   • storage location name (LGOBE) from Stock INL
+//   • material type (MTBEZ: Bahan Baku, Produk Jadi, Kemasan, …) from Material List
 
-import { MutasiData } from '@/app/shared/types'
+import { AsalKebun, MutasiData } from '@/app/shared/types'
 import { normalizeCode } from '@/app/shared/utils/filterUtils'
 import { fetchWithTokenRefresh } from '@/lib/fetchWithTokenRefresh'
 
@@ -14,25 +16,45 @@ export function toSapDate(isoDate: string): string {
   return isoDate ? isoDate.replace(/-/g, '') : ''
 }
 
-function formatLocation(lgort: string, werks: string): string {
-  if (lgort && werks) return `Gudang ${lgort} (${werks})`
-  if (lgort) return `Gudang ${lgort}`
+/** "3003 – OIP RBDPO" (or just "3003" when the name is unknown). */
+export function slocText(lgort: string, name?: string): string {
+  const code = (lgort ?? '').toString().trim()
+  const n = (name ?? '').toString().trim()
+  if (!code) return n
+  return n && n.toUpperCase() !== code.toUpperCase() ? `${code} – ${n}` : code
+}
+
+function formatLocation(lgort: string, werks: string, name?: string): string {
+  if (lgort && werks) return `Gudang ${slocText(lgort, name)} (${werks})`
+  if (lgort) return `Gudang ${slocText(lgort, name)}`
   if (werks) return `Plant ${werks}`
   return 'Gudang'
 }
 
+/** "PT Lestari (12000345)" — name first, code in brackets unless the name already carries it. */
+export function partnerText(name: string, code: string): string {
+  const n = (name ?? '').toString().trim()
+  const c = normalizeCode((code ?? '').toString())
+  if (!n) return c
+  if (!c || normalizeCode(n.split(/\s+/)[0]) === c) return n
+  return `${n} (${c})`
+}
+
 function vendorLabel(row: MutasiData): string {
   const name = row.peranMitra === 'Vendor' ? row.namaMitra : ''
-  if (row.nomorPo) return name ? `${name} (PO ${row.nomorPo})` : `Vendor (PO ${row.nomorPo})`
+  if (row.nomorPo) {
+    const who = name || (row.kodeVendor ? `Vendor ${normalizeCode(row.kodeVendor)}` : 'Vendor')
+    return `${who} (PO ${row.nomorPo})`
+  }
   if (name) return name
-  return row.kodeVendor ? `Vendor (${row.kodeVendor})` : ''
+  return row.kodeVendor ? `Vendor (${normalizeCode(row.kodeVendor)})` : ''
 }
 
 function customerLabel(row: MutasiData): string {
-  const name = row.peranMitra === 'Customer' ? row.namaMitra : ''
-  const ref = row.nomorSO ? `SO ${row.nomorSO}` : row.customer ? row.customer : ''
-  if (name) return ref ? `${name} (${ref})` : name
-  return row.customer ? `Pelanggan (${row.customer})` : row.nomorSO ? `Pelanggan (SO ${row.nomorSO})` : ''
+  const name = row.peranMitra === 'Customer' ? partnerText(row.namaMitra, row.customer) : ''
+  const ref = row.nomorSO ? `SO ${row.nomorSO}` : ''
+  if (name) return ref ? `${name} · ${ref}` : name
+  return row.customer ? `Customer (${normalizeCode(row.customer)})` : row.nomorSO ? `Customer (SO ${row.nomorSO})` : ''
 }
 
 // ─── Route (Dari ➔ Ke) Resolver ─────────────────────────────────────────────
@@ -49,9 +71,10 @@ export function determineRoute(row: MutasiData): { asal: string; tujuan: string;
   const vendor = vendorLabel(row)
   const customer = customerLabel(row)
 
-  const curLoc = formatLocation(lgort, werks)
+  const curLoc = formatLocation(lgort, werks, row.storageLocationName)
+  const destName = slocText(umlgo, row.destStorageLocationName)
   const destLoc = umlgo
-    ? (umwrk && umwrk !== werks ? `Gudang ${umlgo} (${umwrk})` : `Gudang ${umlgo}`)
+    ? (umwrk && umwrk !== werks ? `Gudang ${destName} (${umwrk})` : `Gudang ${destName}`)
     : (umwrk && umwrk !== werks ? `Plant ${umwrk}` : '')
 
   let asal = ''
@@ -91,8 +114,8 @@ export function determineRoute(row: MutasiData): { asal: string; tujuan: string;
     asal = kostl ? `Cost Center (${kostl})` : 'Pemakaian Biaya'
     tujuan = curLoc
   }
-  // 301, 311, 303, 305, 309, 313, 315 - Transfer Posting (309 = konversi material/batch)
-  else if (['301', '311', '303', '305', '309', '310', '313', '315'].includes(bwart)) {
+  // 301, 311, 303, 305, 309, 313, 315 - Transfer Posting (309 = konversi material/batch); Z23/Z24/Z25 = transfer custom INL (remove from / place in storage)
+  else if (['301', '311', '303', '305', '309', '310', '313', '315', 'Z23', 'Z24', 'Z25'].includes(bwart)) {
     if (shkzg === 'H') {
       asal = curLoc
       tujuan = destLoc ? destLoc : (umwrk && umwrk !== werks ? `Plant ${umwrk}` : `Transfer Antar Gudang (${werks})`)
@@ -147,6 +170,18 @@ function withRoute(row: MutasiData): MutasiData {
   return { ...row, asalMutasi: route.asal, tujuanMutasi: route.tujuan, alurMutasi: route.alur }
 }
 
+// ─── Kebun / PKS asal (ZZKODE_KEBUN_1..4, ZZNAMA_KEBUN_1..4, ZZKG_1..4) ────────
+function mapAsalKebun(item: any): AsalKebun[] {
+  const out: AsalKebun[] = []
+  for (let i = 1; i <= 4; i++) {
+    const kode = (item[`ZZKODE_KEBUN_${i}`] ?? '').toString().trim()
+    const nama = (item[`ZZNAMA_KEBUN_${i}`] ?? '').toString().trim()
+    const kg = Number(item[`ZZKG_${i}`]) || 0
+    if (kode || nama) out.push({ kode, nama, kg })
+  }
+  return out
+}
+
 // ─── SAP response → MutasiData mapper ────────────────────────────────────────
 export function mapSapToMutasi(raw: any[]): MutasiData[] {
   return raw.map((item, idx) => {
@@ -181,8 +216,10 @@ export function mapSapToMutasi(raw: any[]): MutasiData[] {
       plant: item.WERKS ?? '',
       plantName: item.NAME1 ?? '',
       storageLocation: item.LGORT ?? '',
+      storageLocationName: (item.LGOBE ?? '').toString().trim(),
       destPlant: item.UMWRK ?? '',
       destStorageLocation: item.UMLGO ?? '',
+      destStorageLocationName: '',
       jumlah: rawQty,
       satuan: item.ERFME ?? item.MEINS ?? item.BSTME ?? 'KG',
       nilaiMutasi: rawVal,
@@ -203,17 +240,28 @@ export function mapSapToMutasi(raw: any[]): MutasiData[] {
       keterangan: itemText || headerText || '-',
       grupMaterial: item.ZZMATKL ?? '',
       namaGrupMaterial: item.ZZWGBEZ ?? '',
+      tipeMaterial: (item.MTBEZ ?? '').toString().trim(),
+      jenisDokBC: '',
+      nomorAju: '',
+      nomorPendaftaran: '',
+      tglPendaftaran: '',
+      asalKebun: mapAsalKebun(item),
     }
     return withRoute(row)
   })
 }
 
-// ─── Vendor / Customer lookup (from Pemasukan & Pengeluaran) ─────────────────
+// ─── Vendor / Customer + customs document lookup (Pemasukan & Pengeluaran) ───
 
 interface PartnerInfo {
   name: string
   role: 'Vendor' | 'Customer'
   so?: string
+  po?: string
+  jenisDokBC: string
+  nomorAju: string
+  nomorPendaftaran: string
+  tglPendaftaran: string
 }
 
 export interface PartnerLookup {
@@ -223,23 +271,33 @@ export interface PartnerLookup {
 }
 
 const key = (v: unknown) => normalizeCode((v ?? '').toString())
+const str = (v: unknown) => (v ?? '').toString().trim()
+
+function customsOf(item: any) {
+  return {
+    jenisDokBC: str(item.JENISDOK),
+    nomorAju: str(item.NOAJU),
+    nomorPendaftaran: str(item.NOPENDT),
+    tglPendaftaran: str(item.TGLPEND),
+  }
+}
 
 export function buildPartnerLookup(pemasukanRaw: any[], pengeluaranRaw: any[]): PartnerLookup {
   const lookup: PartnerLookup = { byDoc: new Map(), byPo: new Map(), bySo: new Map() }
 
   for (const item of pemasukanRaw) {
-    const name = (item.VENDOR ?? '').toString().trim()
+    const name = str(item.VENDOR)
     if (!name) continue
-    const info: PartnerInfo = { name, role: 'Vendor' }
+    const info: PartnerInfo = { name, role: 'Vendor', po: str(item.EBELN) || undefined, ...customsOf(item) }
     if (key(item.MBLNR)) lookup.byDoc.set(key(item.MBLNR), info)
-    if (key(item.EBELN)) lookup.byPo.set(key(item.EBELN), info)
+    if (key(item.EBELN) && !lookup.byPo.has(key(item.EBELN))) lookup.byPo.set(key(item.EBELN), info)
   }
 
   for (const item of pengeluaranRaw) {
-    const name = (item.VENDOR ?? '').toString().trim()
+    const name = str(item.VENDOR)
     if (!name) continue
-    const so = (item.VBELN ?? '').toString().trim()
-    const info: PartnerInfo = { name, role: 'Customer', so: so || undefined }
+    const so = str(item.VBELN)
+    const info: PartnerInfo = { name, role: 'Customer', so: so || undefined, po: str(item.EBELN) || undefined, ...customsOf(item) }
     if (key(item.MBLNR)) lookup.byDoc.set(key(item.MBLNR), info)
     if (key(item.VBELN)) lookup.bySo.set(key(item.VBELN), info)
     // Outgoing with a PO (e.g. return to vendor / subcon) — keep vendor names from Pemasukan first
@@ -249,20 +307,101 @@ export function buildPartnerLookup(pemasukanRaw: any[], pengeluaranRaw: any[]): 
   return lookup
 }
 
-export function applyPartners(rows: MutasiData[], lookup: PartnerLookup): MutasiData[] {
+// ─── Storage location names & material types ─────────────────────────────────
+
+export interface MasterLookup {
+  slocNames: Map<string, string>     // "WERKS|LGORT" and "LGORT" → LGOBE
+  materialTypes: Map<string, string> // normalized MATNR → MTBEZ
+}
+
+export function emptyMasterLookup(): MasterLookup {
+  return { slocNames: new Map(), materialTypes: new Map() }
+}
+
+function addSloc(m: Map<string, string>, werks: unknown, lgort: unknown, name: unknown) {
+  const l = str(lgort)
+  const n = str(name)
+  if (!l || !n) return
+  const w = str(werks)
+  if (w && !m.has(`${w}|${l}`)) m.set(`${w}|${l}`, n)
+  if (!m.has(l)) m.set(l, n)
+}
+
+export function slocNameOf(lookup: MasterLookup, werks: string, lgort: string): string {
+  const l = str(lgort)
+  if (!l) return ''
+  return lookup.slocNames.get(`${str(werks)}|${l}`) ?? lookup.slocNames.get(l) ?? ''
+}
+
+/** Rows from Stock INL (LGORT/LGOBE/MATNR/MTBEZ) and Material List (MATNR/MTBEZ). */
+export function buildMasterLookup(stockRaw: any[], materialRaw: any[], extra: any[] = []): MasterLookup {
+  const lookup = emptyMasterLookup()
+  for (const item of stockRaw) {
+    addSloc(lookup.slocNames, item.WERKS ?? item.PLANT, item.LGORT ?? item.LOCATION, item.LGOBE ?? item.NAMA_LOCATION)
+    const t = str(item.MTBEZ)
+    if (t && key(item.MATNR)) lookup.materialTypes.set(key(item.MATNR), t)
+  }
+  for (const item of [...materialRaw, ...extra]) {
+    const t = str(item.MTBEZ)
+    const m = key(item.MATNR ?? item.KODEBRG)
+    if (t && m && !lookup.materialTypes.has(m)) lookup.materialTypes.set(m, t)
+  }
+  return lookup
+}
+
+export function applyPartners(rows: MutasiData[], lookup: PartnerLookup, master: MasterLookup = emptyMasterLookup()): MutasiData[] {
   return rows.map((row) => {
     const partner =
       lookup.byDoc.get(key(row.nomorDokMaterial)) ??
       (row.nomorPo ? lookup.byPo.get(key(row.nomorPo)) : undefined) ??
       (row.nomorSO ? lookup.bySo.get(key(row.nomorSO)) : undefined)
-    if (!partner) return row
-    return withRoute({
+
+    const next: MutasiData = {
       ...row,
-      namaMitra: partner.name,
-      peranMitra: partner.role,
-      nomorSO: row.nomorSO || partner.so || '',
-    })
+      storageLocationName: row.storageLocationName || slocNameOf(master, row.plant, row.storageLocation),
+      destStorageLocationName: row.destStorageLocationName || slocNameOf(master, row.destPlant || row.plant, row.destStorageLocation),
+      tipeMaterial: row.tipeMaterial || master.materialTypes.get(key(row.kodeBarang)) || '',
+    }
+    if (partner) {
+      next.namaMitra = partner.name
+      next.peranMitra = partner.role
+      next.nomorSO = row.nomorSO || partner.so || ''
+      // Outgoing rows: the customs report PO (EBELN) is the customer's order reference
+      if (!next.nomorPo && partner.role === 'Customer' && partner.po) next.nomorPo = partner.po
+      // Customs document only belongs to the exact material document it was reported on
+      if (lookup.byDoc.get(key(row.nomorDokMaterial)) === partner) {
+        next.jenisDokBC = partner.jenisDokBC
+        next.nomorAju = partner.nomorAju
+        next.nomorPendaftaran = partner.nomorPendaftaran
+        next.tglPendaftaran = partner.tglPendaftaran
+      }
+    }
+    return withRoute(next)
   })
+}
+
+// ─── Facility (fasilitas kepabeanan) material filter ─────────────────────────
+
+/** Normalized codes of materials flagged "fasilitas" in the IT Inventory master, or null if unavailable. */
+export async function fetchFacilityCodes(): Promise<Set<string> | null> {
+  try {
+    const res = await fetch('/api/material-facility')
+    const json = await res.json()
+    if (!json?.success || !json?.data) return null
+    const codes = new Set<string>()
+    Object.entries(json.data as Record<string, any>).forEach(([k, v]) => {
+      if (v?.is_facility) codes.add(normalizeCode(k))
+    })
+    return codes
+  } catch (err) {
+    console.error('Gagal mengambil data fasilitas material:', err)
+    return null
+  }
+}
+
+export function filterFacilityRows(rows: MutasiData[], codes: Set<string> | null): MutasiData[] {
+  if (!codes) return rows
+  return rows.filter((r) => codes.has(normalizeCode(r.kodeBarang ?? '')))
 }
 
 // ─── Loader ──────────────────────────────────────────────────────────────────
@@ -297,6 +436,22 @@ function buildCustomsRequest(plant: string, start: string, end: string) {
   }
 }
 
+function buildStockRequest(plant: string) {
+  return {
+    I_COMPANY_CODE: [{ SIGN: 'I', OPTION: 'EQ', LOW: 'INL0', HIGH: '' }],
+    I_PLANT: [{ SIGN: 'I', OPTION: 'EQ', LOW: plant || 'IN01', HIGH: '' }],
+    I_POSTING_DATE: [{ SIGN: 'I', OPTION: 'EQ', LOW: toSapDate(new Date().toISOString().split('T')[0]), HIGH: '' }],
+  }
+}
+
+function buildMaterialListRequest(plant: string) {
+  return {
+    I_BEWFLG: 'X',
+    I_WERKS: [{ SIGN: 'I', OPTION: 'EQ', LOW: plant || 'IN01', HIGH: '' }],
+    I_MATNR: [{ SIGN: 'I', OPTION: 'BT', LOW: '000000000000000001', HIGH: '999999999999999999' }],
+  }
+}
+
 export interface LoadMutasiOptions {
   plant: string
   start: string
@@ -307,11 +462,35 @@ export interface LoadMutasiOptions {
   onLogout?: () => void
 }
 
+// Storage location names and material types change rarely — keep them for the session.
+const MASTER_TTL_MS = 30 * 60 * 1000
+const masterCache = new Map<string, { at: number; stock: any[]; materials: any[] }>()
+
+async function loadMasterRaw(opts: LoadMutasiOptions, common: any): Promise<{ stock: any[]; materials: any[]; didLogout: boolean }> {
+  const plant = opts.plant || 'IN01'
+  const hit = masterCache.get(plant)
+  if (hit && Date.now() - hit.at < MASTER_TTL_MS) return { stock: hit.stock, materials: hit.materials, didLogout: false }
+
+  const [stock, materials] = await Promise.all([
+    fetchWithTokenRefresh<any[]>({ ...common, url: '/api/stok', body: buildStockRequest(plant) }),
+    fetchWithTokenRefresh<any[]>({ ...common, url: '/api/setting/material-list', body: buildMaterialListRequest(plant) }),
+  ])
+  if (stock.didLogout || materials.didLogout) return { stock: [], materials: [], didLogout: true }
+
+  const result = {
+    stock: Array.isArray(stock.data) ? stock.data : [],
+    materials: Array.isArray(materials.data) ? materials.data : [],
+  }
+  if (result.stock.length > 0 || result.materials.length > 0) masterCache.set(plant, { at: Date.now(), ...result })
+  return { ...result, didLogout: false }
+}
+
 /**
- * Fetch MB51 movements and enrich them with vendor/customer names.
- * Pemasukan & Pengeluaran are fetched only AFTER MB51 succeeds, so a rejected
- * SAP password never fans out into several parallel failed logons.
- * A failure of the name lookup is not fatal — rows are returned without names.
+ * Fetch MB51 movements and enrich them with partner names, customs documents,
+ * storage location names and material types.
+ * The enrichment calls run only AFTER MB51 succeeds, so a rejected SAP password
+ * never fans out into several parallel failed logons. A failure of any lookup is
+ * not fatal — rows are returned with codes only.
  */
 export async function loadMutasiWithPartners(
   opts: LoadMutasiOptions
@@ -337,17 +516,21 @@ export async function loadMutasiWithPartners(
 
   try {
     const customsBody = buildCustomsRequest(opts.plant, opts.start, opts.end)
-    const [masuk, keluar] = await Promise.all([
+    const [masuk, keluar, master] = await Promise.all([
       fetchWithTokenRefresh<any[]>({ ...common, url: '/api/pemasukan', body: customsBody }),
       fetchWithTokenRefresh<any[]>({ ...common, url: '/api/pengeluaran', body: customsBody }),
+      loadMasterRaw(opts, common).catch((err) => {
+        console.error('Gagal mengambil nama lokasi / tipe material:', err)
+        return { stock: [], materials: [], didLogout: false }
+      }),
     ])
-    if (masuk.didLogout || keluar.didLogout) return { rows: [], error: null, didLogout: true }
+    if (masuk.didLogout || keluar.didLogout || master.didLogout) return { rows: [], error: null, didLogout: true }
 
-    const lookup = buildPartnerLookup(
-      Array.isArray(masuk.data) ? masuk.data : [],
-      Array.isArray(keluar.data) ? keluar.data : []
-    )
-    return { rows: applyPartners(rows, lookup), error: null, didLogout: false }
+    const masukRaw = Array.isArray(masuk.data) ? masuk.data : []
+    const keluarRaw = Array.isArray(keluar.data) ? keluar.data : []
+    const lookup = buildPartnerLookup(masukRaw, keluarRaw)
+    const masterLookup = buildMasterLookup(master.stock, master.materials, [...masukRaw, ...keluarRaw])
+    return { rows: applyPartners(rows, lookup, masterLookup), error: null, didLogout: false }
   } catch (err) {
     console.error('Gagal mengambil nama vendor/customer:', err)
     return { rows, error: null, didLogout: false }

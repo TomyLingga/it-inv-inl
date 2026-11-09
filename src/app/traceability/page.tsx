@@ -1,9 +1,10 @@
 // src/app/traceability/page.tsx
 //
-// Batch traceability: search by batch / production order / PO / SO / material
-// document / vendor-customer / material, then see in one screen
-//   • Hulu  (backward) — raw & supporting materials and their suppliers
-//   • Hilir (forward)  — the products made from it and the customers it went to
+// Batch traceability (facility materials only): search by SO / PO / batch /
+// production order / material document / vendor-customer / material, then see
+//   • Alur produksi — numbered stages from the customer delivery back to the
+//     supplier: gudang, batch, bahan baku & pendukung, vendor, dokumen pabean
+//   • Pohon hulu & hilir — the full genealogy tree in both directions
 
 'use client'
 
@@ -22,6 +23,8 @@ import {
   Store,
   Info,
   X,
+  Workflow,
+  ListTree,
 } from 'lucide-react'
 import { useAuth } from '@/app/components/useAuth'
 import Sidebar, { Topbar } from '@/app/components/Sidebar'
@@ -29,7 +32,7 @@ import LoadingOverlay from '@/app/components/ui/LoadingOverlay'
 import { MutasiData } from '@/app/shared/types'
 import { PLANT_OPTIONS } from '@/app/shared/utils/constants'
 import { normalizeCode } from '@/app/shared/utils/filterUtils'
-import { loadMutasiWithPartners } from '@/app/mutasi/mutasiData'
+import { loadMutasiWithPartners, fetchFacilityCodes, filterFacilityRows } from '@/app/mutasi/mutasiData'
 import {
   buildTraceGraph,
   buildTraceTree,
@@ -40,8 +43,12 @@ import {
   TraceRoot,
   TraceNode,
   TraceSummaryRow,
+  TreeRoot,
 } from './traceEngine'
+import { buildChain, searchDeliveries } from './chainEngine'
 import TraceTree, { formatDate, formatQty } from './TraceTree'
+import TraceChain from './TraceChain'
+import TraceHelp from './TraceHelp'
 
 const RANGE_PRESETS = [30, 90, 180]
 const DEFAULT_RANGE_DAYS = 90
@@ -54,11 +61,33 @@ function isoDaysAgo(days: number): string {
 
 function sameRoot(a: TraceRoot | null, b: TraceRoot): boolean {
   if (!a || a.type !== b.type) return false
-  return a.type === 'lot' ? a.lotKey === (b as any).lotKey : a.orderNo === (b as any).orderNo
+  if (a.type === 'lot') return a.lotKey === (b as any).lotKey
+  if (a.type === 'order') return a.orderNo === (b as any).orderNo
+  return a.ref === (b as any).ref
 }
 
 // ─── Root header (what is being traced) ──────────────────────────────────────
 function RootHeader({ root, graph, onClear }: { root: TraceRoot; graph: TraceGraph; onClear: () => void }) {
+  if (root.type === 'delivery') {
+    return (
+      <div className="flex items-start justify-between gap-3 p-4 sm:p-5 rounded-2xl bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-900/50">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-600 text-white shadow-md shadow-sky-500/25">
+            <Store className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-sky-700/80 dark:text-sky-400/80">Titik fokus</span>
+            <h2 className="text-lg font-extrabold text-sky-900 dark:text-sky-200">Pengeluaran {root.label || root.ref}</h2>
+            <p className="text-xs text-sky-800/80 dark:text-sky-300/80">Ditelusuri mundur sampai ke supplier bahan baku dan bahan pendukung</p>
+          </div>
+        </div>
+        <button onClick={onClear} className="p-1.5 rounded-lg text-sky-600 hover:bg-sky-100 dark:hover:bg-sky-900/40" title="Tutup">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    )
+  }
+
   if (root.type === 'order') {
     const order = graph.orders.get(root.orderNo)
     return (
@@ -234,6 +263,10 @@ export default function TraceabilityPage() {
   const [end, setEnd] = useState(isoDaysAgo(0))
 
   const [rows, setRows] = useState<MutasiData[]>([])
+  // All movements (before the facility filter) + facility codes: needed for supporting materials issued to cost centers
+  const [allRows, setAllRows] = useState<MutasiData[]>([])
+  const [facilityCodes, setFacilityCodes] = useState<Set<string> | null>(null)
+  const [treeLot, setTreeLot] = useState<string | null>(null)
   const [loadedKey, setLoadedKey] = useState<string | null>(null)
   const [isFetching, setIsFetching] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -241,14 +274,34 @@ export default function TraceabilityPage() {
   const [query, setQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
   const [root, setRoot] = useState<TraceRoot | null>(null)
+  const [view, setView] = useState<'alur' | 'pohon'>('alur')
 
   const graph = useMemo(() => buildTraceGraph(rows), [rows])
   const candidates: TraceCandidate[] = useMemo(
-    () => (submittedQuery ? searchTrace(graph, submittedQuery) : []),
+    () => (submittedQuery ? [...searchDeliveries(graph, submittedQuery), ...searchTrace(graph, submittedQuery)] : []),
     [graph, submittedQuery]
   )
-  const backwardTree = useMemo(() => (root ? buildTraceTree(graph, root, 'backward') : null), [graph, root])
-  const forwardTree = useMemo(() => (root ? buildTraceTree(graph, root, 'forward') : null), [graph, root])
+  const chain = useMemo(
+    () =>
+      root
+        ? buildChain(graph, root, {
+            allRows,
+            isFacility: (code) => !facilityCodes || facilityCodes.has(normalizeCode(code)),
+          })
+        : null,
+    [graph, root, allRows, facilityCodes]
+  )
+  // Delivery (SO/PO) roots can hold several batches: the tree shows one batch at a time
+  const deliveryLots = root?.type === 'delivery' && chain ? chain.startLots : []
+  const treeRoot: TreeRoot | null = useMemo(() => {
+    if (!root) return null
+    if (root.type !== 'delivery') return root
+    const lotKey = treeLot && deliveryLots.includes(treeLot) ? treeLot : deliveryLots[0]
+    return lotKey ? { type: 'lot', lotKey } : null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [root, treeLot, deliveryLots.join(',')])
+  const backwardTree = useMemo(() => (treeRoot ? buildTraceTree(graph, treeRoot, 'backward') : null), [graph, treeRoot])
+  const forwardTree = useMemo(() => (treeRoot ? buildTraceTree(graph, treeRoot, 'forward') : null), [graph, treeRoot])
 
   // Deep link: /traceability?q=BATCH&plant=IN01
   useEffect(() => {
@@ -295,7 +348,11 @@ export default function TraceabilityPage() {
         setFetchError(error)
         return
       }
-      setRows(loaded)
+      // Hanya material yang terdaftar sebagai fasilitas kepabeanan
+      const codes = await fetchFacilityCodes()
+      setFacilityCodes(codes)
+      setAllRows(loaded)
+      setRows(filterFacilityRows(loaded, codes))
       setLoadedKey(`${plant}|${start}|${end}`)
     } catch (err: any) {
       setFetchError(err?.message || 'Gagal mengambil data mutasi dari SAP')
@@ -310,14 +367,16 @@ export default function TraceabilityPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isClient, isAuthenticated, csrfToken])
 
-  // Auto-pick when the search resolves to exactly one starting point
+  // Auto-pick when the search resolves to exactly one starting point, or to an outgoing document (SO/PO)
   useEffect(() => {
-    if (candidates.length === 1 && !sameRoot(root, candidates[0].root)) setRoot(candidates[0].root)
+    const pick = candidates[0]?.root.type === 'delivery' || candidates.length === 1 ? candidates[0] : null
+    if (pick && !sameRoot(root, pick.root)) setRoot(pick.root)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidates])
 
   const focus = (next: TraceRoot) => {
     setRoot(next)
+    setTreeLot(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -355,10 +414,10 @@ export default function TraceabilityPage() {
                   </div>
                   <div>
                     <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                      Traceability Batch
+                      Traceability
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-0.5">
-                      Telusuri asal-usul bahan (hulu) dan penggunaan / distribusi produk (hilir) dalam satu layar
+                      Dari supplier sampai customer: gudang, batch produksi, bahan baku, bahan pendukung, dan dokumen pabean
                     </p>
                   </div>
                 </div>
@@ -427,7 +486,7 @@ export default function TraceabilityPage() {
                     <input
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Nomor batch, order produksi, PO, SO, dokumen material, nama vendor/customer, atau material…"
+                      placeholder="Nomor SO / PO pengeluaran, batch, order produksi, dokumen material, nama vendor/customer, atau material…"
                       className="w-full h-12 pl-10 pr-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
                   </div>
@@ -437,7 +496,7 @@ export default function TraceabilityPage() {
                 </form>
                 <p className="text-[11px] text-slate-400 flex items-start gap-1.5">
                   <Info className="w-3.5 h-3.5 shrink-0 mt-px" />
-                  Penelusuran memakai mutasi (MB51) pada rentang tanggal di atas, termasuk bahan pendukung. Jika asal bahan tidak ketemu, perluas rentang tanggal lalu muat ulang.
+                  Hanya material yang terdaftar sebagai fasilitas kepabeanan (Setting › Material List). Penelusuran memakai mutasi MB51 pada rentang tanggal di atas; jika asal bahan tidak ketemu, perluas rentang tanggal lalu muat ulang.
                 </p>
               </div>
 
@@ -472,7 +531,13 @@ export default function TraceabilityPage() {
                             className="text-left p-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 transition-colors"
                           >
                             <span className="flex items-center gap-1.5 text-xs font-extrabold text-slate-900 dark:text-white">
-                              {c.root.type === 'order' ? <Factory className="w-3.5 h-3.5 text-amber-500" /> : <Boxes className="w-3.5 h-3.5 text-violet-500" />}
+                              {c.root.type === 'order' ? (
+                                <Factory className="w-3.5 h-3.5 text-amber-500" />
+                              ) : c.root.type === 'delivery' ? (
+                                <Store className="w-3.5 h-3.5 text-sky-500" />
+                              ) : (
+                                <Boxes className="w-3.5 h-3.5 text-violet-500" />
+                              )}
                               <span className="truncate">{c.title}</span>
                             </span>
                             <span className="block font-mono text-[11px] text-slate-500 mt-0.5">{c.subtitle}</span>
@@ -486,9 +551,53 @@ export default function TraceabilityPage() {
               )}
 
               {/* Result */}
-              {root && backwardTree && forwardTree && (
+              {root && chain && (
                 <div className="space-y-4">
                   <RootHeader root={root} graph={graph} onClear={() => setRoot(null)} />
+                  <div className="inline-flex p-1 rounded-xl bg-slate-100 dark:bg-slate-800 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setView('alur')}
+                      className={`h-9 px-4 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 ${view === 'alur' || !treeRoot ? 'bg-white dark:bg-slate-900 shadow text-indigo-700 dark:text-indigo-300' : 'text-slate-500'}`}
+                    >
+                      <Workflow className="w-3.5 h-3.5" /> Alur produksi
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!treeRoot}
+                      onClick={() => setView('pohon')}
+                      title={treeRoot ? 'Silsilah lengkap batch: asal-usul (hulu) dan penggunaan sampai customer (hilir)' : 'Tidak ada batch yang bisa ditampilkan sebagai pohon'}
+                      className={`h-9 px-4 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-40 ${view === 'pohon' && treeRoot ? 'bg-white dark:bg-slate-900 shadow text-indigo-700 dark:text-indigo-300' : 'text-slate-500'}`}
+                    >
+                      <ListTree className="w-3.5 h-3.5" /> Pohon hulu &amp; hilir
+                    </button>
+                  </div>
+                  <TraceHelp view={view === 'pohon' && treeRoot ? 'pohon' : 'alur'} />
+                  {(view === 'alur' || !treeRoot) && <TraceChain chain={chain} graph={graph} onFocus={focus} />}
+                </div>
+              )}
+
+              {root && view === 'pohon' && backwardTree && forwardTree && (
+                <div className="space-y-4">
+                  {deliveryLots.length > 1 && (
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="font-semibold text-slate-500">Batch dari pengeluaran ini:</span>
+                      {deliveryLots.map((k) => {
+                        const lot = graph.lots.get(k)
+                        const active = treeRoot?.type === 'lot' && treeRoot.lotKey === k
+                        return (
+                          <button
+                            key={k}
+                            type="button"
+                            onClick={() => setTreeLot(k)}
+                            className={`px-2.5 py-1 rounded-lg border font-mono font-bold ${active ? 'bg-violet-600 border-violet-600 text-white' : 'border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/40'}`}
+                          >
+                            {lot?.batch || 'tanpa batch'} <span className="font-sans font-semibold opacity-80">· {lot?.materialName}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
                     <TracePanel
                       title="Hulu — Asal-usul"
@@ -524,9 +633,10 @@ export default function TraceabilityPage() {
               {!submittedQuery && !root && !isFetching && rows.length > 0 && (
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 py-12 px-4 text-center">
                   <GitBranch className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Mulai dengan mengetik nomor batch, order produksi, PO, atau SO</p>
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Mulai dengan mengetik nomor SO, PO, batch, atau order produksi</p>
                   <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                    Contoh: batch produk jadi untuk melihat bahan bakunya, atau batch CPO dari PO untuk melihat jadi produk apa dan dikirim ke customer mana.
+                    Contoh: nomor SO penjualan untuk melihat produk itu dibuat dari batch mana, bahan bakunya apa, disimpan di gudang mana, dan dibeli dari vendor mana.
+                    Atau batch CPO untuk melihat jadi produk apa dan dikirim ke customer mana.
                   </p>
                 </div>
               )}

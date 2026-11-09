@@ -55,7 +55,7 @@ import { MUTASI_CONFIG } from './config'
 import MutasiFlowView from './MutasiFlowView'
 import { buildBatchJourneys, isReversal } from './mutasiUtils'
 import { fadeInUp, modalBackdrop, modalPanel, useReducedMotionSafe } from '@/app/shared/utils/motion'
-import { loadMutasiWithPartners } from './mutasiData'
+import { loadMutasiWithPartners, partnerText, slocText } from './mutasiData'
 
 function getTodayDateRange(): DateRange {
   const today = new Date().toISOString().split('T')[0]
@@ -263,10 +263,25 @@ function TraceabilityModal({ data, allRows, reduce, onClose }: TraceabilityModal
                   <span className="text-slate-400">Plant:</span>
                   <span className="font-semibold text-slate-700 dark:text-slate-300">{data.plant} {data.plantName ? `(${data.plantName})` : ''}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Storage Location (Gudang):</span>
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">{data.storageLocation || '-'}</span>
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-400 shrink-0">Storage Location (Gudang):</span>
+                  <span className="font-semibold text-right text-slate-700 dark:text-slate-300">{slocText(data.storageLocation, data.storageLocationName) || '-'}</span>
                 </div>
+                {data.destStorageLocation && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-400 shrink-0">Gudang Tujuan (UMLGO):</span>
+                    <span className="font-semibold text-right text-slate-700 dark:text-slate-300">
+                      {slocText(data.destStorageLocation, data.destStorageLocationName)}
+                      {data.destPlant && data.destPlant !== data.plant ? ` (${data.destPlant})` : ''}
+                    </span>
+                  </div>
+                )}
+                {data.tipeMaterial && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Tipe Material:</span>
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">{data.tipeMaterial}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-slate-400">Nomor Batch:</span>
                   <span className="font-mono font-bold text-violet-600 dark:text-violet-400">{data.batch || '-'}</span>
@@ -295,8 +310,27 @@ function TraceabilityModal({ data, allRows, reduce, onClose }: TraceabilityModal
                     <span className="font-bold text-right text-slate-800 dark:text-slate-100">{data.namaMitra}</span>
                   </div>
                 )}
+                {data.nomorAju && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-400 shrink-0">Dokumen Pabean:</span>
+                    <span className="font-mono font-semibold text-right text-emerald-700 dark:text-emerald-400">
+                      {data.jenisDokBC ? `${data.jenisDokBC} · ` : ''}AJU {data.nomorAju}
+                      {data.nomorPendaftaran ? ` · Daftar ${data.nomorPendaftaran}` : ''}
+                    </span>
+                  </div>
+                )}
+                {data.asalKebun?.length > 0 && (
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-400 shrink-0">Kebun / PKS Asal:</span>
+                    <span className="font-semibold text-right text-lime-700 dark:text-lime-400">
+                      {data.asalKebun
+                        .map((e) => `${e.nama || e.kode}${e.kode && e.nama ? ` (${e.kode})` : ''}${e.kg ? ` ${e.kg.toLocaleString('id-ID')} KG` : ''}`)
+                        .join('; ')}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Purchase Order (PO):</span>
+                  <span className="text-slate-400">{data.peranMitra === 'Customer' ? 'PO Customer / Kontrak:' : 'Purchase Order (PO):'}</span>
                   <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">
                     {data.nomorPo ? `${data.nomorPo} (Item ${data.itemPo})` : '-'}
                   </span>
@@ -316,15 +350,19 @@ function TraceabilityModal({ data, allRows, reduce, onClose }: TraceabilityModal
                   <span className="font-mono text-slate-700 dark:text-slate-300">{data.costCenter || '-'}</span>
                 </div>
                 {data.kodeVendor && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Kode Vendor (LIFNR):</span>
-                    <span className="font-mono text-slate-700 dark:text-slate-300">{data.kodeVendor}</span>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-400 shrink-0">Vendor (LIFNR):</span>
+                    <span className="font-mono text-right text-slate-700 dark:text-slate-300">
+                      {data.peranMitra === 'Vendor' ? partnerText(data.namaMitra, data.kodeVendor) : normalizeCode(data.kodeVendor)}
+                    </span>
                   </div>
                 )}
                 {data.customer && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Kode Customer (KUNNR):</span>
-                    <span className="font-mono text-slate-700 dark:text-slate-300">{data.customer}</span>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-400 shrink-0">Customer (KUNNR):</span>
+                    <span className="font-mono text-right text-slate-700 dark:text-slate-300">
+                      {data.peranMitra === 'Customer' ? partnerText(data.namaMitra, data.customer) : normalizeCode(data.customer)}
+                    </span>
                   </div>
                 )}
               </div>

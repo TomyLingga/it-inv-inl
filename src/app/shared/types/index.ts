@@ -214,8 +214,10 @@ export interface MutasiData extends BaseData {
   plant: string          // WERKS - Kode Plant
   plantName: string      // NAME1 - Nama Plant
   storageLocation: string // LGORT - Storage Location
+  storageLocationName: string // LGOBE - Nama Storage Location (dari MB51 / Stock INL)
   destPlant: string      // UMWRK - Plant Tujuan (Transfer)
   destStorageLocation: string // UMLGO - Storage Location Tujuan
+  destStorageLocationName: string // LGOBE untuk UMLGO
   jumlah: number         // MENGE / ERFMG - Kuantitas
   satuan: string         // MEINS / ERFME - Satuan Unit
   nilaiMutasi: number    // DMBTR - Nilai Transaksi Mata Uang Lokal
@@ -236,6 +238,19 @@ export interface MutasiData extends BaseData {
   keterangan: string     // Ringkasan keterangan (SGTXT / BKTXT)
   grupMaterial: string   // ZZMATKL - Material Group
   namaGrupMaterial: string // ZZWGBEZ - Deskripsi Material Group
+  tipeMaterial: string   // MTBEZ - Deskripsi Material Type (Bahan Baku, Produk Jadi, Kemasan, ...)
+  jenisDokBC: string     // JENISDOK - Jenis dokumen pabean (dari Pemasukan/Pengeluaran)
+  nomorAju: string       // NOAJU
+  nomorPendaftaran: string // NOPENDT
+  tglPendaftaran: string // TGLPEND
+  /** Kebun / PKS asal (MB51 ZZKODE_KEBUN_n, ZZNAMA_KEBUN_n, ZZKG_n) — diisi saat GR CPO */
+  asalKebun: AsalKebun[]
+}
+
+export interface AsalKebun {
+  kode: string
+  nama: string
+  kg: number
 }
 
 // ============================================================================
