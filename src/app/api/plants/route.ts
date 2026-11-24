@@ -1,6 +1,7 @@
 // src/app/api/plants/route.ts
 
 import { NextRequest, NextResponse } from 'next/server'
+import { checkSettingPassword } from '@/lib/settingGuard'
 
 const ITINV_API_URL = process.env.ITINV_API_URL || 'http://127.0.0.1:8000/api'
 
@@ -55,6 +56,10 @@ export async function GET(): Promise<Response> {
 }
 
 export async function POST(request: NextRequest): Promise<Response> {
+  // Changing Setting data needs the extra Setting password
+  const denied = checkSettingPassword(request)
+  if (denied) return denied
+
   try {
     const body = await request.json()
     return await safeFetchJson(`${ITINV_API_URL}/plants`, {
@@ -74,6 +79,10 @@ export async function POST(request: NextRequest): Promise<Response> {
 }
 
 export async function DELETE(request: NextRequest): Promise<Response> {
+  // Changing Setting data needs the extra Setting password
+  const denied = checkSettingPassword(request)
+  if (denied) return denied
+
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')

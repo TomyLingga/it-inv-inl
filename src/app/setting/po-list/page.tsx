@@ -20,6 +20,7 @@ import { PoListData, SortConfig, ExportFormat, ColumnConfig } from '@/app/shared
 import { exportToExcel, exportToPDF } from '@/app/shared/utils/exportUtils'
 import { createSortFunction, resequenceData } from '@/app/shared/utils/filterUtils'
 import { toast } from '@/app/components/ui/AppToast'
+import { useSettingPassword } from '@/app/shared/components/SettingPassword'
 
 function mapSapToPo(
   raw: any[],
@@ -48,6 +49,7 @@ function mapSapToPo(
 
 export default function PoListPage() {
   const { isAuthenticated, userName, loading, csrfToken, logout, refreshToken } = useAuth()
+  const { guardedFetch, passwordDialog } = useSettingPassword()
   const router = useRouter()
   const [isClient, setIsClient] = useState(false)
 
@@ -174,7 +176,7 @@ export default function PoListPage() {
   }, [loading, isAuthenticated, csrfToken, fetchData])
 
   // Handler update KPPBC PO
-  const handleChangeKppbc = async (ebeln: string, newKppbc: string) => {
+  const handleChangeKppbc = async (ebeln: string, newKppbc: string, previousKppbc: string) => {
     setSavingEbeln(ebeln)
 
     // Optimistic UI update
@@ -185,7 +187,7 @@ export default function PoListPage() {
     )
 
     try {
-      const res = await fetch('/api/po-kppbc', {
+      const res = await guardedFetch('/api/po-kppbc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -193,6 +195,11 @@ export default function PoListPage() {
           kppbc: newKppbc,
         }),
       })
+      if (!res) {
+        // Password dialog cancelled: undo the optimistic change
+        setData((prev) => prev.map((item) => (item.ebeln === ebeln ? { ...item, kppbc: previousKppbc } : item)))
+        return
+      }
       const json = await res.json()
       if (!json.success) {
         toast.error('Gagal memperbarui kantor KPPBC di database.')
@@ -234,7 +241,7 @@ export default function PoListPage() {
             <div className="flex items-center space-x-2">
               <select
                 value={row.kppbc}
-                onChange={(e) => handleChangeKppbc(row.ebeln, e.target.value)}
+                onChange={(e) => handleChangeKppbc(row.ebeln, e.target.value, row.kppbc)}
                 disabled={isSaving}
                 className={`text-xs font-bold rounded-lg px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer transition-all border ${
                   row.kppbc !== 'Belum Ditentukan'
@@ -341,6 +348,7 @@ export default function PoListPage() {
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
       <Sidebar />
+      {passwordDialog}
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar userName={userName} />

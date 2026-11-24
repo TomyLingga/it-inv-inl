@@ -21,6 +21,7 @@ import { PLANT_OPTIONS } from '@/app/shared/utils/constants'
 import { exportToExcel, exportToPDF } from '@/app/shared/utils/exportUtils'
 import { createSortFunction, resequenceData, normalizeCode } from '@/app/shared/utils/filterUtils'
 import { toast } from '@/app/components/ui/AppToast'
+import { useSettingPassword } from '@/app/shared/components/SettingPassword'
 
 function mapSapToMaterial(
   raw: any[],
@@ -62,6 +63,7 @@ function mapSapToMaterial(
 
 export default function MaterialListPage() {
   const { isAuthenticated, userName, loading, csrfToken, logout, refreshToken } = useAuth()
+  const { guardedFetch, passwordDialog } = useSettingPassword()
   const router = useRouter()
   const [isClient, setIsClient] = useState(false)
 
@@ -198,7 +200,7 @@ export default function MaterialListPage() {
     )
 
     try {
-      const res = await fetch('/api/material-facility', {
+      const res = await guardedFetch('/api/material-facility', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -207,6 +209,17 @@ export default function MaterialListPage() {
           facility_type: newStatus ? 'fasilitas' : 'non_fasilitas',
         }),
       })
+      if (!res) {
+        // Password dialog cancelled: undo the optimistic change
+        setData((prev) =>
+          prev.map((item) =>
+            item.matnr === matnr
+              ? { ...item, isFacility: currentStatus, facilityType: currentStatus ? 'fasilitas' : 'non_fasilitas' }
+              : item
+          )
+        )
+        return
+      }
       const json = await res.json()
       if (!json.success) {
         toast.error('Gagal memperbarui status fasilitas kepabeanan di database.')
@@ -393,6 +406,7 @@ export default function MaterialListPage() {
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
       <Sidebar />
+      {passwordDialog}
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar userName={userName} />

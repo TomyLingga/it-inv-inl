@@ -9,6 +9,7 @@ import Sidebar, { Topbar } from '@/app/components/Sidebar'
 import { Building2, Plus, Edit2, Trash2, Search, AlertCircle } from 'lucide-react'
 import LoadingOverlay from '@/app/components/ui/LoadingOverlay'
 import { toast } from '@/app/components/ui/AppToast'
+import { useSettingPassword } from '@/app/shared/components/SettingPassword'
 
 interface KppbcItem {
   id?: number
@@ -20,6 +21,7 @@ interface KppbcItem {
 
 export default function KppbcListPage() {
   const { isAuthenticated, userName, loading } = useAuth()
+  const { guardedFetch, passwordDialog } = useSettingPassword()
   const router = useRouter()
   const [isClient, setIsClient] = useState(false)
 
@@ -124,11 +126,12 @@ export default function KppbcListPage() {
 
     setIsSubmitting(true)
     try {
-      const res = await fetch('/api/kppbc', {
+      const res = await guardedFetch('/api/kppbc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       })
+      if (!res) return // password dialog cancelled
       const json = await res.json()
       if (json?.success) {
         toast.success(editItem ? 'Data KPPBC berhasil diperbarui' : 'Data KPPBC baru berhasil ditambahkan')
@@ -148,9 +151,10 @@ export default function KppbcListPage() {
     if (!deleteTarget) return
     setIsSubmitting(true)
     try {
-      const res = await fetch(`/api/kppbc?id=${deleteTarget.id || deleteTarget.code}`, {
+      const res = await guardedFetch(`/api/kppbc?id=${deleteTarget.id || deleteTarget.code}`, {
         method: 'DELETE',
       })
+      if (!res) return // password dialog cancelled
       const json = await res.json()
       if (json?.success) {
         toast.success('Data KPPBC berhasil dihapus')
@@ -173,6 +177,7 @@ export default function KppbcListPage() {
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
       <Sidebar />
+      {passwordDialog}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar userName={userName} />
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">

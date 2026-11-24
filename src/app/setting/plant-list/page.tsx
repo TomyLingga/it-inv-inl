@@ -9,6 +9,7 @@ import Sidebar, { Topbar } from '@/app/components/Sidebar'
 import { Factory, Plus, Edit2, Trash2, Search, RotateCcw, AlertCircle, CheckCircle2 } from 'lucide-react'
 import LoadingOverlay from '@/app/components/ui/LoadingOverlay'
 import { toast } from '@/app/components/ui/AppToast'
+import { useSettingPassword } from '@/app/shared/components/SettingPassword'
 
 interface PlantItem {
   id?: number
@@ -19,6 +20,7 @@ interface PlantItem {
 
 export default function PlantListPage() {
   const { isAuthenticated, userName, loading } = useAuth()
+  const { guardedFetch, passwordDialog } = useSettingPassword()
   const router = useRouter()
   const [isClient, setIsClient] = useState(false)
 
@@ -111,11 +113,12 @@ export default function PlantListPage() {
 
     setIsSubmitting(true)
     try {
-      const res = await fetch('/api/plants', {
+      const res = await guardedFetch('/api/plants', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       })
+      if (!res) return // password dialog cancelled
       const json = await res.json()
       if (json?.success) {
         toast.success(editItem ? 'Plant berhasil diperbarui' : 'Plant baru berhasil ditambahkan')
@@ -135,9 +138,10 @@ export default function PlantListPage() {
     if (!deleteTarget) return
     setIsSubmitting(true)
     try {
-      const res = await fetch(`/api/plants?id=${deleteTarget.id || deleteTarget.code}`, {
+      const res = await guardedFetch(`/api/plants?id=${deleteTarget.id || deleteTarget.code}`, {
         method: 'DELETE',
       })
+      if (!res) return // password dialog cancelled
       const json = await res.json()
       if (json?.success) {
         toast.success('Data Plant berhasil dihapus')
@@ -160,6 +164,7 @@ export default function PlantListPage() {
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
       <Sidebar />
+      {passwordDialog}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar userName={userName} />
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
