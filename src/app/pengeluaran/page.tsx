@@ -221,7 +221,7 @@ export default function PengeluaranPage() {
             (normSo ? kppbcMap[normSo] || kppbcMap[item.nomorSO] : null) ||
             (normPo ? kppbcMap[normPo] || kppbcMap[item.nomorPo] : null)
 
-          const itemKppbc = poSetting ? poSetting.kppbc : 'Belum Ditentukan'
+          const itemKppbc = (poSetting?.kppbc ?? '').trim() || 'Belum Ditentukan'
           return itemKppbc === selectedKppbc
         })
 

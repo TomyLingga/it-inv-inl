@@ -28,7 +28,8 @@ function mapSapToPo(
   return raw.map((item, idx) => {
     const ebeln = item.EBELN ?? ''
     const setting = kppbcMap[ebeln]
-    const kppbc = setting ? setting.kppbc : 'Belum Ditentukan'
+    // No mapping, or a mapping saved with an empty office, both count as "Belum Ditentukan"
+    const kppbc = (setting?.kppbc ?? '').trim() || 'Belum Ditentukan'
 
     return {
       no: idx + 1,
@@ -113,13 +114,15 @@ export default function PoListPage() {
 
     const map = await fetchKppbcMap()
 
+    // All PO/SO numbers maintained in ZMM_BEACUKAI. A fixed lower bound here used to
+    // hide older documents (e.g. PO 4100292226 < 4100306631).
     const requestBody = {
       S_EBELN: [
         {
           SIGN: 'I',
           OPTION: 'BT',
-          LOW: '4100306631',
-          HIGH: '9900000099',
+          LOW: '0000000000',
+          HIGH: 'ZZZZZZZZZZ',
         },
       ],
     }
@@ -423,6 +426,7 @@ export default function PoListPage() {
                     {kppbcOptions.map((opt) => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
+                    <option value="Belum Ditentukan">Belum Ditentukan</option>
                   </select>
                 </div>
               </div>
